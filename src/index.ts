@@ -1,12 +1,29 @@
 import * as qs from "qs";
 import * as crypto from "crypto";
 import {default as axios} from "axios";
+
+import * as dotenv from "dotenv";
+
 import fs from "fs";
 import dayjs from "dayjs";
 import "dayjs/locale/uk";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 dayjs.locale("uk");
+dotenv.config();
+
+// tmp
+const nodemailer = require("nodemailer");
+
+let mailTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.G_USER,
+    pass: process.env.G_PASS,
+  },
+});
 
 const readStatus = function () {
   return fs.readFileSync("status.txt", "utf-8").toString().split("/");
@@ -35,30 +52,47 @@ const timeOutS = 10 * 1e3;
 
 async function main() {
   await getToken();
+  let notify = "";
   try {
     const data = await getDeviceInfo(config.deviceId);
     const dt = dayjs();
     const nowStr = dt.format(config.timeFormat);
 
-    const prevStatus = readStatus();
-    const timeDiff = dt.from(dayjs(prevStatus[1], config.timeFormat), true);
+    const [prevStatus, prevTime] = readStatus();
+    const timeDiff = dt.from(dayjs(prevTime, config.timeFormat), true);
 
     if (data.result.online) {
-      if (prevStatus[0] === "offline") {
-        console.log("🟢 Online\r\n Електроенергія була відсутня: " + timeDiff);
+      if (prevStatus === "offline") {
+        notify = "🟢 Online\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
+        console.log(notify);
         fs.writeFileSync("status.txt", "online/" + nowStr);
       }
     } else {
-      if (prevStatus[0] === "online") {
-        console.log(
-          "🔴 Offline\r\n Електроенергію було ввімкнено: " + timeDiff
-        );
+      if (prevStatus === "online") {
+        notify = "🔴 Offline\r\n\r\nЕлектроенергію було ввімкнено: " + timeDiff;
+        console.log(notify);
         fs.writeFileSync("status.txt", "offline/" + nowStr);
       }
     }
   } catch (e) {
     console.error(e);
   } finally {
+    if (notify) {
+      let mailDetails = {
+        from: process.env.G_USER,
+        to: "tusko@photoinside.me",
+        subject: (notify.includes("ffline") ? "🔴" : "🟢") + "Plug notify",
+        text: notify,
+      };
+      mailTransporter.sendMail(mailDetails, function (err, data) {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log("Email sent successfully");
+        }
+      });
+    }
+
     setTimeout(() => main(), timeOutS);
   }
 }

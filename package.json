@@ -13,10 +13,12 @@
     "axios": "^1.2.2",
     "crypto": "^1.0.1",
     "dayjs": "^1.11.7",
+    "nodemailer": "^6.9.0",
     "qs": "^6.11.0"
   },
   "devDependencies": {
     "@types/node": "^18.11.18",
-    "@types/qs": "^6.9.7"
+    "@types/qs": "^6.9.7",
+    "dotenv": "^16.0.3"
   }
 }

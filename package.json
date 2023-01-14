@@ -1,0 +1,22 @@
+{
+  "name": "smart-plug",
+  "version": "1.0.0",
+  "description": "Get device status via Tuya Cloud API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon -w src --ext ts --exec ts-node src/index.ts"
+  },
+  "author": "Tusko Trush <tusko@photoinside.me>",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.2.2",
+    "crypto": "^1.0.1",
+    "dayjs": "^1.11.7",
+    "qs": "^6.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.18",
+    "@types/qs": "^6.9.7"
+  }
+}

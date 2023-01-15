@@ -8,7 +8,7 @@ const dayjs = require("dayjs");
 const relativeTime = require("dayjs/plugin/relativeTime");
 require('dayjs/locale/uk')
 
-const filePath = path.join("/tmp", "status.txt");
+const filePath = path.join("/tmp", "smart-plug__status.txt");
 
 dayjs.extend(relativeTime);
 dayjs.locale("uk");

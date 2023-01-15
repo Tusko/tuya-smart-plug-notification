@@ -1,6 +1,7 @@
 import * as qs from "qs";
 import * as crypto from "crypto";
 import {default as axios} from "axios";
+import path from "path";
 
 import * as dotenv from "dotenv";
 
@@ -26,7 +27,10 @@ let mailTransporter = nodemailer.createTransport({
 });
 
 const readStatus = function () {
-  return fs.readFileSync("status.txt", "utf-8").toString().split("/");
+  return fs
+    .readFileSync(path.resolve(__dirname, "../status.txt"), "utf-8")
+    .toString()
+    .split("/");
 };
 
 let token = "";

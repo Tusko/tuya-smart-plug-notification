@@ -10,7 +10,7 @@ dayjs.extend(relativeTime);
 dayjs.locale("uk");
 dotenv.config();
 
-let currentStatus = "offline/2021-01-01 00:00:00";
+let currentStatus = '';
 
 let token = "";
 
@@ -41,18 +41,21 @@ async function smartPlug() {
     const dt = dayjs();
     const nowStr = dt.format(config.timeFormat);
 
+    if (!prevStatus) {
+      currentStatus = data.result.online ? "online/" + nowStr : "offline/" + nowStr;
+      return {notify, currentStatus};
+    }
+
     const timeDiff = dt.from(dayjs(prevTime, config.timeFormat), true);
 
     if (data.result.online) {
       if (prevStatus === "offline") {
         notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
-        console.log(notify);
         currentStatus = "online/" + nowStr;
       }
     } else {
       if (prevStatus === "online") {
         notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
-        console.log(notify);
         currentStatus = "offline/" + nowStr;
       }
     }

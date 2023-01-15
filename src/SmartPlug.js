@@ -1,14 +1,13 @@
-import * as qs from "qs";
-import * as crypto from "crypto";
-import {default as axios} from "axios";
-import path from "path";
+const qs = require("qs");
+const crypto = require("crypto");
+const axios = require("axios");
+const path = require("path");
+const dotenv = require("dotenv");
+const fs = require("fs");
+const dayjs = require("dayjs");
+const relativeTime = require("dayjs/plugin/relativeTime");
+require('dayjs/locale/uk')
 
-import * as dotenv from "dotenv";
-
-import fs from "fs";
-import dayjs from "dayjs";
-import "dayjs/locale/uk";
-import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 dayjs.locale("uk");
 dotenv.config();
@@ -52,9 +51,9 @@ const httpClient = axios.create({
   timeout: 5 * 1e3,
 });
 
-const timeOutS = 10 * 1e3;
+// const timeOutS = 10 * 1e3;
 
-async function main() {
+async function SmartPlug() {
   await getToken();
   let notify = "";
   try {
@@ -97,7 +96,9 @@ async function main() {
       });
     }
 
-    setTimeout(() => main(), timeOutS);
+    return notify;
+
+    // setTimeout(() => main(), timeOutS);
   }
 }
 
@@ -127,11 +128,11 @@ async function getToken() {
   token = login.result.access_token;
 }
 
-async function getDeviceInfo(deviceId: string) {
+async function getDeviceInfo(deviceId) {
   const query = {};
   const method = "GET";
   const url = `/v1.1/iot-03/devices/${deviceId}`;
-  const reqHeaders: {[k: string]: string} = await getRequestSign(
+  const reqHeaders = await getRequestSign(
     url,
     method,
     {},
@@ -157,7 +158,7 @@ async function getDeviceInfo(deviceId: string) {
 /**
  * HMAC-SHA256 crypto function
  */
-async function encryptStr(str: string, secret: string): Promise<string> {
+async function encryptStr(str, secret) {
   return crypto
     .createHmac("sha256", secret)
     .update(str, "utf8")
@@ -174,16 +175,16 @@ async function encryptStr(str: string, secret: string): Promise<string> {
  * @param body
  */
 async function getRequestSign(
-  path: string,
-  method: string,
-  headers: {[k: string]: string} = {},
-  query: {[k: string]: any} = {},
-  body: {[k: string]: any} = {}
+  path,
+  method,
+  headers = {},
+  query = {},
+  body = {}
 ) {
   const t = Date.now().toString();
   const [uri, pathQuery] = path.split("?");
   const queryMerged = Object.assign(query, qs.parse(pathQuery));
-  const sortedQuery: {[k: string]: string} = {};
+  const sortedQuery = {};
   Object.keys(queryMerged)
     .sort()
     .forEach((i) => (sortedQuery[i] = query[i]));
@@ -206,6 +207,8 @@ async function getRequestSign(
   };
 }
 
-main().catch((err) => {
-  throw Error(`ERROE: ${err}`);
-});
+module.exports = SmartPlug;
+
+// main().catch((err) => {
+//   throw Error(`ERROE: ${err}`);
+// });

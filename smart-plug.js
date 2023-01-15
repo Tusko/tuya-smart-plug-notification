@@ -15,8 +15,13 @@ dayjs.locale("uk");
 dotenv.config();
 
 const readStatus = function () {
+  const statusFile = path.resolve(__dirname, "./status.txt");
+  if (!fs.existsSync(statusFile)) {
+    fs.writeFileSync(statusFile, "online/" + dayjs().format(config.timeFormat));
+  }
+
   return fs
-    .readFileSync(path.resolve(__dirname, "./status.txt"), "utf-8")
+    .readFileSync(statusFile, "utf-8")
     .toString()
     .split("/");
 };

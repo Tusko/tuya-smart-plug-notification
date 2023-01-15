@@ -11,6 +11,7 @@
   "author": "Tusko Trush <tusko@photoinside.me>",
   "license": "ISC",
   "dependencies": {
+    "@fastify/aws-lambda": "^3.2.0",
     "aws-lambda-fastify": "^2.2.0",
     "axios": "^1.2.2",
     "crypto": "^1.0.1",

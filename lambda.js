@@ -1,5 +1,5 @@
 const awsLambdaFastify = require('aws-lambda-fastify')
-const app = require('.src/app');
+const app = require('./src/app');
 
 const proxy = awsLambdaFastify(app)
 // or

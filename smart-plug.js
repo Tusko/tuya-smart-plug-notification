@@ -43,7 +43,7 @@ async function smartPlug() {
 
     if (!prevStatus) {
       currentStatus = data.result.online ? "online/" + nowStr : "offline/" + nowStr;
-      notify = "🟡 Статус: " + currentStatus;
+      notify = "🟡 Reboot ";
       return {notify, currentStatus};
     }
 

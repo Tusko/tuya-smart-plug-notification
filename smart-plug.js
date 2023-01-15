@@ -15,9 +15,9 @@ dayjs.locale("uk");
 dotenv.config();
 
 const readStatus = function () {
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, "online/" + dayjs().format(config.timeFormat));
-  }
+  // if (!fs.existsSync(filePath)) {
+  //   fs.writeFileSync(filePath, "online/" + dayjs().format(config.timeFormat));
+  // }
 
   return fs
     .readFileSync(filePath, "utf-8")

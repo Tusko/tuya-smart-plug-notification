@@ -44,7 +44,10 @@ async function smartPlug() {
     if (!prevStatus) {
       currentStatus = data.result.online ? "online/" + nowStr : "offline/" + nowStr;
       notify = "🟡 Reboot ";
-      return {notify, currentStatus};
+      return {
+        notify,
+        currentStatus
+      };
     }
 
     const timeDiff = dt.from(dayjs(prevTime, config.timeFormat), true);
@@ -76,7 +79,10 @@ async function smartPlug() {
       notify = "🟡 No changes";
     }
 
-    return {notify, currentStatus};
+    return {
+      notify,
+      currentStatus
+    };
   }
 }
 

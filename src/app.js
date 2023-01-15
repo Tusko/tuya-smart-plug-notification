@@ -12,7 +12,7 @@ app.get("/", (_, reply) => {
 
 if (require.main !== module) {
   // called directly i.e. "node app"
-  app.listen({port: 3000}, (err) => {
+  app.listen(3000, (err) => {
     if (err) console.error(err);
     console.log("server listening on 3000");
   });

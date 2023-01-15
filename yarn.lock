@@ -511,6 +511,11 @@ semver@^7.3.7:
   dependencies:
     lru-cache "^6.0.0"
 
+serverless-http@^3.1.1:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/serverless-http/-/serverless-http-3.1.1.tgz#086509bad0ed29babf3d189e839a228fa0aabad3"
+  integrity sha512-apCJb/xsB/E2IVT23bG9lBGoPv7kTgwhi6b/Reshc181vJv7Df4hCOj0WNQQRpPoKMEZAuGBEzhdIHUaL3pCLQ==
+
 set-cookie-parser@^2.4.1:
   version "2.5.1"
   resolved "https://registry.yarnpkg.com/set-cookie-parser/-/set-cookie-parser-2.5.1.tgz#ddd3e9a566b0e8e0862aca974a6ac0e01349430b"

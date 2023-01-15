@@ -34,7 +34,7 @@ const httpClient = axios.create({
 async function smartPlug() {
   await getToken();
   let notify = "";
-  const [prevStatus, prevTime] = readStatus();
+  const [prevStatus, prevTime] = currentStatus.split('/');
 
   try {
     const data = await getDeviceInfo(config.deviceId);

@@ -4,11 +4,19 @@ const path = require('path');
 const serverless = require('serverless-http');
 const app = express();
 const bodyParser = require('body-parser');
+const smartPlug = require('../smart-plug');
 
 const router = express.Router();
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
+  try {
+    const spData = await smartPlug();
+    console.log('spData', spData);
+  } catch (err) {
+    console.log('spData err', err);
+  }
+
   res.writeHead(200, {'Content-Type': 'text/html'});
-  res.write('<h1>Hello from Express.js!</h1>');
+  res.write('<h2>Hello from Tuya Smart Plug!</h2><br>');
   res.end();
 });
 

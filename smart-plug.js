@@ -73,7 +73,7 @@ async function smartPlug() {
     console.error(e);
   } finally {
     if (notify) {
-      axios({
+      await axios({
         url: 'https://api.telegram.org/bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ/sendMessage',
         method: 'post',
         data: {
@@ -81,7 +81,6 @@ async function smartPlug() {
           text: notify
         }
       })
-        .then(data => console.log(data.result))
     } else {
       notify = "🟡 No changes";
     }

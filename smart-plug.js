@@ -42,7 +42,7 @@ async function smartPlug() {
     const nowStr = dt.format(config.timeFormat);
 
     if (!prevStatus) {
-      currentStatus = data.result.online ? "online/" + nowStr : "offline/" + nowStr;
+      currentStatus = (data.result.online ? "online/" : "offline/") + nowStr;
       notify = "🟡 Reboot ";
       return {
         notify,

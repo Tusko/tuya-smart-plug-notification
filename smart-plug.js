@@ -8,20 +8,19 @@ const dayjs = require("dayjs");
 const relativeTime = require("dayjs/plugin/relativeTime");
 require('dayjs/locale/uk')
 
-console.log(axios)
+const filePath = path.join("/tmp", "status.txt");
 
 dayjs.extend(relativeTime);
 dayjs.locale("uk");
 dotenv.config();
 
 const readStatus = function () {
-  const statusFile = path.resolve(__dirname, "./status.txt");
-  if (!fs.existsSync(statusFile)) {
-    fs.writeFileSync(statusFile, "online/" + dayjs().format(config.timeFormat));
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, "online/" + dayjs().format(config.timeFormat));
   }
 
   return fs
-    .readFileSync(statusFile, "utf-8")
+    .readFileSync(filePath, "utf-8")
     .toString()
     .split("/");
 };
@@ -61,13 +60,13 @@ async function smartPlug() {
       if (prevStatus === "offline") {
         notify = "🟢 Online\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
         console.log(notify);
-        fs.writeFileSync("status.txt", "online/" + nowStr);
+        fs.writeFileSync(filePath, "online/" + nowStr);
       }
     } else {
       if (prevStatus === "online") {
         notify = "🔴 Offline\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
         console.log(notify);
-        fs.writeFileSync("status.txt", "offline/" + nowStr);
+        fs.writeFileSync(filePath, "offline/" + nowStr);
       }
     }
   } catch (e) {

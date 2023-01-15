@@ -63,7 +63,7 @@ async function smartPlug() {
   } catch (e) {
     console.error(e);
   } finally {
-    if (notify) {
+    if (notify && notify.includes('Електро')) {
       await axios({
         url: 'https://api.telegram.org/bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ/sendMessage',
         method: 'post',

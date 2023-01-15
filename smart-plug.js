@@ -58,13 +58,13 @@ async function smartPlug() {
 
     if (data.result.online) {
       if (prevStatus === "offline") {
-        notify = "🟢 Online\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
+        notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
         console.log(notify);
         fs.writeFileSync(filePath, "online/" + nowStr);
       }
     } else {
       if (prevStatus === "online") {
-        notify = "🔴 Offline\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
+        notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
         console.log(notify);
         fs.writeFileSync(filePath, "offline/" + nowStr);
       }

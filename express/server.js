@@ -8,15 +8,15 @@ const smartPlug = require('../smart-plug');
 
 const router = express.Router();
 router.get('/', async (req, res) => {
+  let spData;
   try {
-    const spData = await smartPlug();
-    console.log('spData', spData);
+    spData = await smartPlug();
   } catch (err) {
-    console.log('spData err', err);
+    spData = err;
   }
 
   res.writeHead(200, {'Content-Type': 'text/html'});
-  res.write('<h2>Hello from Tuya Smart Plug!</h2><br>');
+  res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + spData);
   res.end();
 });
 

@@ -79,7 +79,7 @@ async function smartPlug() {
       })
         .then(data => console.log(data.result))
     } else {
-      console.log('no notify');
+      notify = "🟡 No changes";
     }
 
     return notify;

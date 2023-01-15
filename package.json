@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon -w src --exec node src/app.js",
-    "start": "node src/app.js"
+    "build:functions": "node src/app.js"
   },
   "author": "Tusko Trush <tusko@photoinside.me>",
   "license": "ISC",

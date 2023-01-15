@@ -1,29 +1,16 @@
 const qs = require("qs");
 const crypto = require("crypto");
 const axios = require('axios').default;
-const path = require("path");
 const dotenv = require("dotenv");
-const fs = require("fs");
 const dayjs = require("dayjs");
 const relativeTime = require("dayjs/plugin/relativeTime");
 require('dayjs/locale/uk')
-
-const filePath = path.join("/tmp", "smart-plug__status.txt");
 
 dayjs.extend(relativeTime);
 dayjs.locale("uk");
 dotenv.config();
 
-const readStatus = function () {
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, '');
-  }
-
-  return fs
-    .readFileSync(filePath, "utf-8")
-    .toString()
-    .split("/");
-};
+let currentStatus = "offline/2021-01-01 00:00:00";
 
 let token = "";
 
@@ -60,13 +47,13 @@ async function smartPlug() {
       if (prevStatus === "offline") {
         notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
         console.log(notify);
-        fs.writeFileSync(filePath, "online/" + nowStr);
+        currentStatus = "online/" + nowStr;
       }
     } else {
       if (prevStatus === "online") {
         notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
         console.log(notify);
-        fs.writeFileSync(filePath, "offline/" + nowStr);
+        currentStatus = "offline/" + nowStr;
       }
     }
   } catch (e) {
@@ -85,7 +72,7 @@ async function smartPlug() {
       notify = "🟡 No changes";
     }
 
-    return notify;
+    return {notify, currentStatus};
   }
 }
 

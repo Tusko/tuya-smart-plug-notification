@@ -11,7 +11,6 @@ dayjs.locale("uk");
 dotenv.config();
 
 let currentStatus = '';
-
 let token = "";
 
 const config = {
@@ -31,7 +30,7 @@ const httpClient = axios.create({
   timeout: 5 * 1e3,
 });
 
-async function smartPlug() {
+async function smartPlug(tg = true) {
   await getToken();
   let notify = "";
   const [prevStatus, prevTime] = currentStatus.split('/');
@@ -50,25 +49,25 @@ async function smartPlug() {
       };
     }
 
-    const timeDiff = dt.from(dayjs(prevTime, config.timeFormat), true);
+    // const timeDiff = dt.from(dayjs(prevTime, config.timeFormat), true);
 
     if (data.result.online) {
       if (prevStatus === "offline") {
         notify = "💡 Світло є"
-        // \r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
+        //\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
         currentStatus = "online/" + nowStr;
       }
     } else {
       if (prevStatus === "online") {
         notify = "🔴 Світла немає"
-        // \r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
+        //\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
         currentStatus = "offline/" + nowStr;
       }
     }
   } catch (e) {
     console.error(e);
   } finally {
-    if (notify && notify.includes('Електро')) {
+    if (notify && notify.includes('line') && tg) {
       await axios({
         url: 'https://api.telegram.org/bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ/sendMessage',
         method: 'post',
@@ -83,7 +82,9 @@ async function smartPlug() {
 
     return {
       notify,
-      currentStatus
+      currentStatus,
+      prevStatus,
+      prevTime
     };
   }
 }

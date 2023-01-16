@@ -10,7 +10,11 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   res.writeHead(200, {'Content-Type': 'text/html'});
   try {
-    const {notify, currentStatus} = await smartPlug();
+    const {
+      notify,
+      currentStatus
+    } = await smartPlug();
+
     res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + notify + '<br>' + currentStatus);
   } catch (err) {
     res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + err);

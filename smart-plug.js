@@ -54,12 +54,14 @@ async function smartPlug() {
 
     if (data.result.online) {
       if (prevStatus === "offline") {
-        notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
+        notify = "💡 Світло є"
+        // \r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
         currentStatus = "online/" + nowStr;
       }
     } else {
       if (prevStatus === "online") {
-        notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
+        notify = "🔴 Світла немає"
+        // \r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
         currentStatus = "offline/" + nowStr;
       }
     }

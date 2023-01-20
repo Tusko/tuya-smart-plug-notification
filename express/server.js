@@ -12,10 +12,10 @@ router.get('/', async (req, res) => {
   try {
     const {
       notify,
-      currentStatus
-    } = await smartPlug();
+      latestStatus
+    } = await smartPlug(false);
 
-    res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + notify + '<br>' + currentStatus);
+    res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + notify + '<br>' + JSON.stringify(latestStatus));
   } catch (err) {
     res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + err);
   }

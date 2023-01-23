@@ -1,16 +1,20 @@
 const qs = require("qs");
 const crypto = require("crypto");
 const axios = require('axios').default;
-const dotenv = require("dotenv");
+const db = require('./db');
+
 const dayjs = require("dayjs");
 const relativeTime = require("dayjs/plugin/relativeTime");
+const utc = require("dayjs/plugin/utc")
+const timezone = require("dayjs/plugin/timezone");
+const {format} = require("path");
 require('dayjs/locale/uk')
 
 dayjs.extend(relativeTime);
+dayjs.extend(timezone);
+dayjs.extend(utc);
 dayjs.locale("uk");
-dotenv.config();
 
-let currentStatus = '';
 
 let token = "";
 
@@ -31,59 +35,71 @@ const httpClient = axios.create({
   timeout: 5 * 1e3,
 });
 
-async function smartPlug() {
+async function smartPlug(tgMsg = true) {
   await getToken();
   let notify = "";
-  const [prevStatus, prevTime] = currentStatus.split('/');
+
+  const {
+    getLatestStatus,
+    insertStatus
+  } = db;
+
+  const latestStatus = await getLatestStatus();
 
   try {
-    const data = await getDeviceInfo(config.deviceId);
+    const deviceInfo = await getDeviceInfo(config.deviceId);
+    const deviceStatus = deviceInfo.result.online;
+    const deviceStatusStr = deviceStatus ? 'online' : 'offline';
     const dt = dayjs();
     const nowStr = dt.format(config.timeFormat);
 
-    if (!prevStatus) {
-      currentStatus = (data.result.online ? "online/" : "offline/") + nowStr;
-      notify = "🟡 Reboot ";
+    if (!latestStatus) {
+      await insertStatus(deviceStatusStr);
+
       return {
-        notify,
-        currentStatus
+        notify: "🟡 No previuos status",
+        latestStatus: {
+          status: deviceStatusStr,
+          datetime: nowStr
+        }
       };
     }
 
-    const timeDiff = dt.from(dayjs(prevTime, config.timeFormat), true);
+    const timeDiff = dt.from(dayjs(latestStatus.datetime.seconds * 1000, config.timeFormat), true);
 
-    if (data.result.online) {
-      if (prevStatus === "offline") {
-        notify = "💡 Світло є"
-        //\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
-        currentStatus = "online/" + nowStr;
+    if (deviceStatus) {
+      if (latestStatus.status === "offline") {
+        notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
+        await insertStatus(deviceStatusStr);
       }
     } else {
-      if (prevStatus === "online") {
-        notify = "🔴 Світла немає"
-        //\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
-        currentStatus = "offline/" + nowStr;
+      if (latestStatus.status === "online") {
+        notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
+        await insertStatus(deviceStatusStr);
       }
     }
+
   } catch (e) {
     console.error(e);
   } finally {
-    if (notify && notify.includes('Світ')) {
-      await axios({
-        url: 'https://api.telegram.org/bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ/sendMessage',
-        method: 'post',
-        data: {
-          chat_id: -1001729031870,
-          text: notify
-        }
-      })
+    if (notify) {
+      if (tgMsg) {
+        await axios({
+          url: 'https://api.telegram.org/bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ/sendMessage',
+          method: 'post',
+          data: {
+            chat_id: -1001729031870,
+            text: notify
+          }
+        })
+      }
     } else {
-      notify = "🟡 No changes";
+      notify = "🟡 No changes from " + (latestStatus?.datetime ? dayjs(latestStatus.datetime.seconds * 1000).format(config.timeFormat) : 'unknown')
     }
 
     return {
       notify,
-      currentStatus
+      latestStatus
     };
   }
 }
@@ -135,7 +151,7 @@ async function getDeviceInfo(deviceId) {
   const {data} = req;
 
   if (!data || !data.success) {
-    throw Error(`Request ${url}\r\n 🛑Failed: ${JSON.stringify(data)}`);
+    throw Error(`Request ${url}\r\n 🛑 Failed: ${JSON.stringify(data)}`);
   }
 
   return data;

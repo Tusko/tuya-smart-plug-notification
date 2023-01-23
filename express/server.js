@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
       latestStatus
     } = await smartPlug(false);
 
-    res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + notify + '<br>' + JSON.stringify(latestStatus));
+    res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + notify + '<pre>' + JSON.stringify(latestStatus) + '</pre>');
   } catch (err) {
     res.write('<h2>Hello from Tuya Smart Plug!</h2><br>' + err);
   }

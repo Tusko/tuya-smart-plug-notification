@@ -38,6 +38,7 @@ const httpClient = axios.create({
 async function smartPlug(tgMsg = true) {
   await getToken();
   let notify = "";
+
   const {
     getLatestStatus,
     insertStatus
@@ -46,36 +47,38 @@ async function smartPlug(tgMsg = true) {
   const latestStatus = await getLatestStatus();
 
   try {
-    const data = await getDeviceInfo(config.deviceId);
-    const deviceStatus = data.result.online;
+    const deviceInfo = await getDeviceInfo(config.deviceId);
+    const deviceStatus = deviceInfo.result.online;
+    const deviceStatusStr = deviceStatus ? 'online' : 'offline';
     const dt = dayjs();
     const nowStr = dt.format(config.timeFormat);
 
     if (!latestStatus) {
-      await insertStatus(deviceStatus ? 'online' : 'offline', nowStr);
+      await insertStatus(deviceStatusStr);
 
       return {
         notify: "🟡 No previuos status",
         latestStatus: {
-          status: deviceStatus ? 'online' : 'offline',
+          status: deviceStatusStr,
           datetime: nowStr
         }
       };
     }
 
-    const timeDiff = dt.from(dayjs(latestStatus.datetime, config.timeFormat), true);
+    const timeDiff = dt.from(dayjs(latestStatus.datetime.seconds * 1000, config.timeFormat), true);
 
     if (deviceStatus) {
       if (latestStatus.status === "offline") {
         notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
-        notify += await insertStatus('online', nowStr);
+        await insertStatus(deviceStatusStr);
       }
     } else {
       if (latestStatus.status === "online") {
         notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
-        notify += await insertStatus('offline', nowStr);
+        await insertStatus(deviceStatusStr);
       }
     }
+
   } catch (e) {
     console.error(e);
   } finally {
@@ -91,7 +94,7 @@ async function smartPlug(tgMsg = true) {
         })
       }
     } else {
-      notify = "🟡 No changes from " + latestStatus.datetime
+      notify = "🟡 No changes from " + (latestStatus?.datetime ? dayjs(latestStatus.datetime.seconds * 1000).format(config.timeFormat) : 'unknown')
     }
 
     return {

@@ -1,86 +1,61 @@
-const mysql = require('mysql2');
-const {Client} = require('ssh2');
-const sshClient = new Client();
-const dotenv = require("dotenv");
-dotenv.config();
+const firebase = require("firebase/app");
+const db = require("firebase/firestore");
+const shortID = require('short-uuid');
+require('whatwg-fetch');
+global.XMLHttpRequest = require('xhr2');
 
-const dbServer = {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-}
-
-const tunnelConfig = {
-  host: process.env.DB_SSH_HOST,
-  port: process.env.DB_SSH_PORT,
-  username: process.env.DB_SSH_USER,
-  password: process.env.DB_SSH_PASSWORD
-}
-const forwardConfig = {
-  srcHost: '127.0.0.1',
-  srcPort: 3306,
-  dstHost: dbServer.host,
-  dstPort: dbServer.port
+const firebaseConfig = {
+  apiKey: "AIzaSyAShFR7w7wkVjjVldhX8_DlaEAoAomKB7k",
+  authDomain: "de-svitlo-e.firebaseapp.com",
+  projectId: "de-svitlo-e",
+  storageBucket: "de-svitlo-e.appspot.com",
+  messagingSenderId: "607971644265",
+  appId: "1:607971644265:web:e68bed46da7fd0b0bfe3f8",
+  measurementId: "G-1E07THS6BL",
 };
-const SSHConnection = new Promise((resolve, reject) => {
-  sshClient.on('ready', () => {
-    sshClient.forwardOut(
-      forwardConfig.srcHost,
-      forwardConfig.srcPort,
-      forwardConfig.dstHost,
-      forwardConfig.dstPort,
-      (err, stream) => {
-        if (err) reject(err);
-        const updatedDbServer = {
-          ...dbServer,
-          stream
-        };
-        const connection = mysql.createConnection(updatedDbServer);
-        connection.connect((error) => {
-          if (error) {
-            reject(error);
-          }
-          resolve(connection);
-        });
-      });
-  }).connect(tunnelConfig);
-});
 
-const getLatestStatus = () => {
-  return new Promise((resolve, reject) => {
-    SSHConnection.then((connection) => {
-      connection.query('SELECT (status, datetime) FROM de_svitlo WHERE id=(SELECT max(id) FROM de_svitlo)', function (_, results) {
-        const [result] = results;
-        resolve(result);
-      });
+const app = firebase.initializeApp(firebaseConfig);
 
-      connection.end();
-    }).catch((error) => {
-      reject(error);
-    });
+const firestoreDB = db.initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false,
+})
+const database = db.getFirestore(app);
+const statusRef = db.collection(database, "statuses");
+
+/**
+ * usage: insertStatus('online');
+ */
+function insertStatus(status) {
+  return db.setDoc(db.doc(statusRef, shortID().uuid()), {
+    status,
+    datetime: new Date()
   });
 }
 
-const insertStatus = (status, datetime) => {
-  return new Promise((resolve, reject) => {
-    SSHConnection.then((connection) => {
-      connection.query(
-        'INSERT INTO de_svitlo (status, datetime) VALUES (?,?)',
-        [status, datetime], (error, results) => {
-          if (error) reject(error);
-          resolve(results);
-        });
+async function getLatestStatus() {
+  const latestQuery = db.query(statusRef, db.orderBy("datetime", "desc"), db.limit(1));
 
-      connection.end();
-    }).catch((error) => {
-      reject(error);
-    });
-  });
+  const {docs} = await db.getDocs(latestQuery)
+
+  return docs[0].data();
 }
+
+// console.log(insertStatus('online'));
+
+// (async () => {
+//   const data = await getLatestStatus();
+//   console.log(data.status, dayjs(data.datetime.seconds * 1000).format('DD.MM.YYYY HH:mm:ss'));
+// })();
+
+function deleteStatusById(id) {
+  return db.deleteDoc(db.doc(database, "statuses", id));
+}
+
+// deleteStatusById('bf9ad562-8a54-4ff6-9e4e-beb5af61b76c');
 
 module.exports = {
+  insertStatus,
   getLatestStatus,
-  insertStatus
+  deleteStatusById
 }

@@ -7,14 +7,13 @@ const dayjs = require("dayjs");
 const relativeTime = require("dayjs/plugin/relativeTime");
 const utc = require("dayjs/plugin/utc")
 const timezone = require("dayjs/plugin/timezone");
-const {format} = require("path");
-require('dayjs/locale/uk')
+const humanizeDuration = require("humanize-duration");
+require('dayjs/locale/uk');
 
 dayjs.extend(relativeTime);
 dayjs.extend(timezone);
 dayjs.extend(utc);
 dayjs.locale("uk");
-
 
 let token = "";
 
@@ -65,16 +64,25 @@ async function smartPlug(tgMsg = true) {
       };
     }
 
-    const timeDiff = dt.from(dayjs(latestStatus.datetime.seconds * 1000, config.timeFormat), true);
+    const now = dayjs();
+    const lastAction = dayjs(latestStatus.datetime.seconds * 1000);
+    const duration = lastAction.diff(now, "milliseconds");
+    const getTimeDiff = humanizeDuration(duration, {
+      round: true,
+      largest: 2,
+      language: "uk",
+      decimal: " ",
+      conjunction: " та "
+    });
 
     if (deviceStatus) {
       if (latestStatus.status === "offline") {
-        notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + timeDiff;
+        notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + getTimeDiff;
         await insertStatus(deviceStatusStr);
       }
     } else {
       if (latestStatus.status === "online") {
-        notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + timeDiff;
+        notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + getTimeDiff;
         await insertStatus(deviceStatusStr);
       }
     }

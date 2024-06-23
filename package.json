@@ -4,7 +4,6 @@
   "description": "Example of how to deploy a Express.js Netlify app.",
   "main": "functions/server.js",
   "scripts": {
-    "build": "netlify-lambda build express",
     "start": "nodemon server-local.js"
   },
   "repository": {
@@ -24,20 +23,18 @@
   "dependencies": {
     "axios": "^1.2.2",
     "dayjs": "^1.11.7",
-    "dotenv": "^16.0.3",
     "firebase": "^9.16.0",
     "humanize-duration": "^3.28.0",
-    "mysql2": "^3.0.1",
-    "ssh2": "^1.11.0",
     "xhr2": "^0.2.1"
   },
   "devDependencies": {
-    "body-parser": "^1.19.0",
-    "express": "^4.17.1",
-    "netlify-lambda": "^1.6.3",
-    "nodemon": "^3.0.1",
-    "serverless-http": "^2.3.0",
-    "short-uuid": "^4.2.2",
-    "whatwg-fetch": "^3.6.2"
+    "@netlify/functions": "^2.8.0",
+    "body-parser": "^1.20.2",
+    "express": "^4.19.2",
+    "netlify-lambda": "^2.0.16",
+    "nodemon": "^3.1.4",
+    "serverless-http": "^3.2.0",
+    "short-uuid": "^5.2.0",
+    "whatwg-fetch": "^3.6.20"
   }
 }

@@ -41,6 +41,16 @@ async function getLatestStatus() {
   return docs[0].data();
 }
 
+
+async function getAllStatuses() {
+  try {
+    const querySnapshot = await db.getDocs(statusRef);
+    return querySnapshot.docs.map(doc => doc.data());
+  } catch (e) {
+    console.error('getAllStatuses', e);
+  }
+}
+
 // console.log(insertStatus('online'));
 
 // (async () => {
@@ -52,10 +62,11 @@ function deleteStatusById(id) {
   return db.deleteDoc(db.doc(database, "statuses", id));
 }
 
-// deleteStatusById('bf9ad562-8a54-4ff6-9e4e-beb5af61b76c');
+// deleteStatusById('0fe611ea-110c-4fe2-8b6d-9cb7a2606a27');
 
 module.exports = {
   insertStatus,
   getLatestStatus,
-  deleteStatusById
+  deleteStatusById,
+  getAllStatuses
 }

@@ -1,14 +1,14 @@
 const qs = require("qs");
 const crypto = require("crypto");
-const axios = require('axios').default;
-const db = require('./db');
+const axios = require("axios").default;
+const db = require("./db");
 
 const dayjs = require("dayjs");
 const relativeTime = require("dayjs/plugin/relativeTime");
-const utc = require("dayjs/plugin/utc")
+const utc = require("dayjs/plugin/utc");
 const timezone = require("dayjs/plugin/timezone");
 const humanizeDuration = require("humanize-duration");
-require('dayjs/locale/uk');
+require("dayjs/locale/uk");
 
 dayjs.extend(relativeTime);
 dayjs.extend(timezone);
@@ -38,17 +38,14 @@ async function smartPlug(tgMsg = true) {
   await getToken();
   let notify = "";
 
-  const {
-    getLatestStatus,
-    insertStatus
-  } = db;
+  const {getLatestStatus, insertStatus, getAllStatuses} = db;
 
   const latestStatus = await getLatestStatus();
 
   try {
     const deviceInfo = await getDeviceInfo(config.deviceId);
     const deviceStatus = deviceInfo.result.online;
-    const deviceStatusStr = deviceStatus ? 'online' : 'offline';
+    const deviceStatusStr = deviceStatus ? "online" : "offline";
     const dt = dayjs();
     const nowStr = dt.format(config.timeFormat);
 
@@ -59,8 +56,8 @@ async function smartPlug(tgMsg = true) {
         notify: "🟡 No previuos status",
         latestStatus: {
           status: deviceStatusStr,
-          datetime: nowStr
-        }
+          datetime: nowStr,
+        },
       };
     }
 
@@ -72,42 +69,51 @@ async function smartPlug(tgMsg = true) {
       largest: 2,
       language: "uk",
       decimal: " ",
-      conjunction: " та "
+      conjunction: " та ",
     });
 
     if (deviceStatus) {
       if (latestStatus.status === "offline") {
-        notify = "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + getTimeDiff;
+        notify =
+          "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + getTimeDiff;
         await insertStatus(deviceStatusStr);
       }
     } else {
       if (latestStatus.status === "online") {
-        notify = "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " + getTimeDiff;
+        notify =
+          "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " +
+          getTimeDiff;
         await insertStatus(deviceStatusStr);
       }
     }
-
   } catch (e) {
     console.error(e);
   } finally {
     if (notify) {
       if (tgMsg) {
         await axios({
-          url: 'https://api.telegram.org/bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ/sendMessage',
-          method: 'post',
+          url: "https://api.telegram.org/bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ/sendMessage",
+          method: "post",
           data: {
             chat_id: -1001729031870,
-            text: notify
-          }
-        })
+            text: notify,
+          },
+        });
       }
     } else {
-      notify = "🟡 No changes from " + (latestStatus?.datetime ? dayjs(latestStatus.datetime.seconds * 1000).format(config.timeFormat) : 'unknown')
+      notify =
+        "🟡 No changes from " +
+        (latestStatus?.datetime
+          ? dayjs(latestStatus.datetime.seconds * 1000).format(
+              config.timeFormat
+            )
+          : "unknown");
     }
 
     return {
       notify,
-      latestStatus
+      latestStatus,
+      allStatuses: await getAllStatuses(),
     };
   }
 }
@@ -142,12 +148,7 @@ async function getDeviceInfo(deviceId) {
   const query = {};
   const method = "GET";
   const url = `/v1.1/iot-03/devices/${deviceId}`;
-  const reqHeaders = await getRequestSign(
-    url,
-    method,
-    {},
-    query
-  );
+  const reqHeaders = await getRequestSign(url, method, {}, query);
 
   const req = await httpClient.request({
     method,

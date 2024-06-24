@@ -4,7 +4,7 @@ const {Menu} = require("@grammyjs/menu");
 //local bot
 //const bot = new Bot("6065682184:AAGj99qRP9AlXt5xp3zvaFuEzTy1NaBmSOQ");
 // prod bot
-const bot = new Bot("bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ");
+const bot = new Bot("5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ");
 
 bot.api.setMyCommands([
   {command: "start", description: "Початок роботи"},

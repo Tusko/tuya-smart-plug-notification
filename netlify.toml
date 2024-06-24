@@ -5,3 +5,9 @@
   from = "/api/*"
   status = 200
   to = "/.netlify/functions/server/:splat"
+
+[[redirects]]
+  force = true
+  from = "/bot/*"
+  status = 200
+  to = "/.netlify/functions/bot/:splat"

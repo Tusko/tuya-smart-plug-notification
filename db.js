@@ -1,8 +1,8 @@
 const firebase = require("firebase/app");
 const db = require("firebase/firestore");
-const shortID = require('short-uuid');
-require('whatwg-fetch');
-global.XMLHttpRequest = require('xhr2');
+const shortID = require("short-uuid");
+require("whatwg-fetch");
+global.XMLHttpRequest = require("xhr2");
 
 const firebaseConfig = {
   apiKey: "AIzaSyAShFR7w7wkVjjVldhX8_DlaEAoAomKB7k",
@@ -19,7 +19,7 @@ const app = firebase.initializeApp(firebaseConfig);
 const firestoreDB = db.initializeFirestore(app, {
   experimentalForceLongPolling: true,
   useFetchStreams: false,
-})
+});
 const database = db.getFirestore(app);
 const statusRef = db.collection(database, "statuses");
 
@@ -29,25 +29,28 @@ const statusRef = db.collection(database, "statuses");
 function insertStatus(status) {
   return db.setDoc(db.doc(statusRef, shortID().uuid()), {
     status,
-    datetime: new Date()
+    datetime: new Date(),
   });
 }
 
 async function getLatestStatus() {
-  const latestQuery = db.query(statusRef, db.orderBy("datetime", "desc"), db.limit(1));
+  const latestQuery = db.query(
+    statusRef,
+    db.orderBy("datetime", "desc"),
+    db.limit(1)
+  );
 
-  const {docs} = await db.getDocs(latestQuery)
+  const {docs} = await db.getDocs(latestQuery);
 
   return docs[0].data();
 }
 
-
 async function getAllStatuses() {
   try {
     const querySnapshot = await db.getDocs(statusRef);
-    return querySnapshot.docs.map(doc => doc.data());
+    return querySnapshot.docs.map((doc) => doc.data());
   } catch (e) {
-    console.error('getAllStatuses', e);
+    console.error("getAllStatuses", e);
   }
 }
 
@@ -68,5 +71,5 @@ module.exports = {
   insertStatus,
   getLatestStatus,
   deleteStatusById,
-  getAllStatuses
-}
+  getAllStatuses,
+};

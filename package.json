@@ -25,7 +25,9 @@
     "dayjs": "^1.11.7",
     "firebase": "^9.16.0",
     "humanize-duration": "^3.28.0",
-    "xhr2": "^0.2.1"
+    "xhr2": "^0.2.1",
+    "@grammyjs/menu": "^1.2.1",
+    "grammy": "^1.25.1"
   },
   "devDependencies": {
     "@netlify/functions": "^2.8.0",

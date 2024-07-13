@@ -29,15 +29,14 @@
     "humanize-duration": "^3.28.0",
     "netlify-cli": "^17.33.3",
     "serverless-http": "^3.2.0",
-    "xhr2": "^0.2.1"
-  },
-  "devDependencies": {
+    "xhr2": "^0.2.1",
     "@netlify/functions": "^2.8.0",
     "body-parser": "^1.20.2",
     "express": "^4.19.2",
-    "netlify-lambda": "^2.0.16",
-    "nodemon": "^3.1.4",
     "short-uuid": "^5.2.0",
     "whatwg-fetch": "^3.6.20"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
   }
 }

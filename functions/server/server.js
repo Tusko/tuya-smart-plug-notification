@@ -3,7 +3,7 @@ const express = require("express");
 const serverless = require("serverless-http");
 const app = express();
 const bodyParser = require("body-parser");
-const smartPlug = require("../smart-plug");
+const smartPlug = require("./smart-plug");
 
 const router = express.Router();
 

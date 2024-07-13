@@ -21,13 +21,14 @@
   },
   "homepage": "https://github.com/neverendingqs/netlify-express#readme",
   "dependencies": {
+    "@grammyjs/menu": "^1.2.1",
     "axios": "^1.2.2",
     "dayjs": "^1.11.7",
     "firebase": "^9.16.0",
+    "grammy": "^1.25.1",
     "humanize-duration": "^3.28.0",
-    "xhr2": "^0.2.1",
-    "@grammyjs/menu": "^1.2.1",
-    "grammy": "^1.25.1"
+    "netlify-cli": "^17.33.3",
+    "xhr2": "^0.2.1"
   },
   "devDependencies": {
     "@netlify/functions": "^2.8.0",

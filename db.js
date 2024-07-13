@@ -1,3 +1,4 @@
+const dayjs = require("dayjs");
 const firebase = require("firebase/app");
 const db = require("firebase/firestore");
 const shortID = require("short-uuid");
@@ -47,8 +48,18 @@ async function getLatestStatus() {
 
 async function getAllStatuses() {
   try {
-    const querySnapshot = await db.getDocs(statusRef);
-    return querySnapshot.docs.map((doc) => doc.data());
+    // get docs and set orderby datetime
+    const querySnapshot = await db.getDocs(
+      db.query(statusRef, db.orderBy("datetime", "desc"))
+    );
+
+    return querySnapshot.docs.map((doc) => {
+      const item = doc.data();
+      return {
+        date: dayjs(item.datetime.seconds * 1000).format("DD.MM.YYYY HH:mm:ss"),
+        ...item,
+      };
+    });
   } catch (e) {
     console.error("getAllStatuses", e);
   }

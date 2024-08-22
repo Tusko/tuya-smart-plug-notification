@@ -18,6 +18,13 @@ dayjs.locale("uk");
 let token = "";
 
 const config = {
+  /**
+   * extend the app:
+   * https://www.tuya.com/vas/commodity/CLOUD_INTEGRATION_SERVICE_V2
+   * https://platform.tuya.com/cloud/products/detail?abilityId=1442730014117204014&abilityAuth=0&tab=1
+   * https://platform.tuya.com/cloud/products/detail?abilityId=1522139760280215643&abilityAuth=0&tab=1&checkSubscribed=1&id=p1673529239955s8ftgu
+   *
+   */
   /* Service address */
   host: "https://openapi.tuyaeu.com",
   /* Access Id */

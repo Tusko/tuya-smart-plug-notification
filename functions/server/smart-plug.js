@@ -48,10 +48,15 @@ async function scrapeAndSendImage(telegramBotToken, chatId) {
   const {data} = await axios.get("https://api.loe.lviv.ua/api/menus/9");
 
   const menuItems = data.menuItems;
-  const imageUrl = menuItems[0].imageUrl;
+  const {children} = menuItems.find(({name}) => name === "Arhiv");
+
+  const imageUrl = children?.length
+    ? children[children.length - 1]?.imageUrl
+    : menuItems[0].imageUrl;
 
   const lastImage = `https://api.loe.lviv.ua/${imageUrl}`;
 
+  console.log(latestImage.image, imageUrl);
   const isExistsImage = latestImage && latestImage.image === imageUrl;
 
   if (!isExistsImage) {

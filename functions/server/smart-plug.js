@@ -52,7 +52,7 @@ async function scrapeAndSendImage(telegramBotToken, chatId) {
 
   const lastImage = `https://api.loe.lviv.ua/${imageUrl}`;
 
-  const isExistsImage = latestImage.image === imageUrl;
+  const isExistsImage = latestImage && latestImage.image === imageUrl;
 
   if (!isExistsImage) {
     try {
@@ -66,6 +66,8 @@ async function scrapeAndSendImage(telegramBotToken, chatId) {
     } catch (e) {
       console.error("TG image post error:", e);
     }
+
+    insertImage(imageUrl);
   }
 
   return lastImage;

@@ -38,6 +38,7 @@ function insertStatus(status) {
 function insertImage(image) {
   return db.setDoc(db.doc(graphicsRef, shortID().uuid()), {
     image,
+    datetime: new Date(),
   });
 }
 
@@ -50,13 +51,21 @@ async function getLatestStatus() {
 
   const {docs} = await db.getDocs(latestQuery);
 
+  if (!docs.length) return;
+
   return docs[0].data();
 }
 
 async function getLatestImage() {
-  const latestQuery = db.query(graphicsRef, db.limit(1));
+  const latestQuery = db.query(
+    graphicsRef,
+    db.orderBy("datetime", "desc"),
+    db.limit(1)
+  );
 
   const {docs} = await db.getDocs(latestQuery);
+
+  if (!docs.length) return;
 
   return docs[0].data();
 }

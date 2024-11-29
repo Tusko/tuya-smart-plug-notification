@@ -23,6 +23,7 @@ const firestoreDB = db.initializeFirestore(app, {
 });
 const database = db.getFirestore(app);
 const statusRef = db.collection(database, "statuses");
+const graphicsRef = db.collection(database, "graphics");
 
 /**
  * usage: insertStatus('online');
@@ -34,12 +35,26 @@ function insertStatus(status) {
   });
 }
 
+function insertImage(image) {
+  return db.setDoc(db.doc(graphicsRef, shortID().uuid()), {
+    image,
+  });
+}
+
 async function getLatestStatus() {
   const latestQuery = db.query(
     statusRef,
     db.orderBy("datetime", "desc"),
     db.limit(1)
   );
+
+  const {docs} = await db.getDocs(latestQuery);
+
+  return docs[0].data();
+}
+
+async function getLatestImage() {
+  const latestQuery = db.query(graphicsRef, db.limit(1));
 
   const {docs} = await db.getDocs(latestQuery);
 
@@ -83,4 +98,7 @@ module.exports = {
   getLatestStatus,
   deleteStatusById,
   getAllStatuses,
+
+  insertImage,
+  getLatestImage,
 };

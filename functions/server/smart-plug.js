@@ -41,13 +41,47 @@ const httpClient = axios.create({
   timeout: 5 * 1e3,
 });
 
+async function scrapeAndSendImage(telegramBotToken, chatId) {
+  const {getLatestImage, insertImage} = db;
+  const latestImage = await getLatestImage();
+
+  const {data} = await axios.get("https://api.loe.lviv.ua/api/menus/9");
+
+  const menuItems = data.menuItems;
+  const imageUrl = menuItems[0].imageUrl;
+
+  const lastImage = `https://api.loe.lviv.ua/${imageUrl}`;
+
+  const isExistsImage = latestImage.image === imageUrl;
+
+  if (!isExistsImage) {
+    try {
+      await axios.post(
+        `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`,
+        {
+          photo: lastImage,
+          chat_id: chatId,
+        }
+      );
+    } catch (e) {
+      console.error("TG image post error:", e);
+    }
+  }
+
+  return lastImage;
+}
+
 async function smartPlug(tgMsg = true) {
+  const botID = "5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ";
+  const chatID = -1001729031870;
   await getToken();
   let notify = "";
 
   const {getLatestStatus, insertStatus, getAllStatuses} = db;
 
   const latestStatus = await getLatestStatus();
+
+  const lastGraphics = await scrapeAndSendImage(botID, chatID);
 
   try {
     const deviceInfo = await getDeviceInfo(config.deviceId);
@@ -99,10 +133,10 @@ async function smartPlug(tgMsg = true) {
     if (notify) {
       if (tgMsg) {
         await axios({
-          url: "https://api.telegram.org/bot5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ/sendMessage",
+          url: `https://api.telegram.org/bot${botID}/sendMessage`,
           method: "post",
           data: {
-            chat_id: -1001729031870,
+            chat_id: chatID,
             text: notify,
           },
         });
@@ -121,6 +155,7 @@ async function smartPlug(tgMsg = true) {
       notify,
       latestStatus,
       allStatuses: await getAllStatuses(),
+      lastGraphics,
     };
   }
 }

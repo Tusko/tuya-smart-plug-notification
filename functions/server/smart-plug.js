@@ -56,13 +56,20 @@ async function scrapeAndSendImage(telegramBotToken, chatId) {
 
   const lastImage = `https://api.loe.lviv.ua/${imageUrl}`;
 
-  console.log(latestImage.image, imageUrl);
-  const isExistsImage = latestImage && latestImage.image === imageUrl;
+  const isExistsImage = latestImage.image === imageUrl;
 
   if (!isExistsImage) {
     try {
       await axios.post(
         `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`,
+        {
+          photo: lastImage,
+          chat_id: chatId,
+        }
+      );
+
+      await axios.post(
+        `https://api.telegram.org/bot7644097274:AAG410Gq8ZVRqPRjYISLVht62xqsQftFFMs/sendPhoto`,
         {
           photo: lastImage,
           chat_id: chatId,

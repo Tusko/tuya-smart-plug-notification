@@ -67,14 +67,6 @@ async function scrapeAndSendImage(telegramBotToken, chatId) {
           chat_id: chatId,
         }
       );
-
-      await axios.post(
-        `https://api.telegram.org/bot7644097274:AAG410Gq8ZVRqPRjYISLVht62xqsQftFFMs/sendPhoto`,
-        {
-          photo: lastImage,
-          chat_id: chatId,
-        }
-      );
     } catch (e) {
       console.error("TG image post error:", e);
     }

@@ -160,7 +160,7 @@ async function smartPlug(tgMsg = true) {
     return {
       notify,
       latestStatus,
-      allStatuses: await getAllStatuses(),
+      allStatuses: await getAllStatuses(tgMsg),
       lastGraphics,
     };
   }

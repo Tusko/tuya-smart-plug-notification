@@ -5,6 +5,8 @@ const shortID = require("short-uuid");
 require("whatwg-fetch");
 global.XMLHttpRequest = require("xhr2");
 
+const isProd = process.env.NODE_ENV === "production";
+
 const firebaseConfig = {
   apiKey: "AIzaSyAShFR7w7wkVjjVldhX8_DlaEAoAomKB7k",
   authDomain: "de-svitlo-e.firebaseapp.com",
@@ -71,6 +73,8 @@ async function getLatestImage() {
 }
 
 async function getAllStatuses() {
+  if (isProd) return [];
+
   try {
     // get docs and set orderby datetime
     const querySnapshot = await db.getDocs(

@@ -1,43 +1,42 @@
 {
-  "name": "netlify-express",
-  "version": "0.0.1",
-  "description": "Example of how to deploy a Express.js Netlify app.",
-  "main": "functions/server.js",
+  "name": "smart-plug-cloudflare",
+  "version": "1.0.0",
+  "description": "Tuya Smart Plug monitoring with Cloudflare Workers and Hono",
+  "main": "src/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
-    "start": "nodemon server-local.js"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev",
+    "preview": "wrangler dev --remote",
+    "tail": "wrangler tail",
+    "clean": "rm -rf node_modules .wrangler dist",
+    "update": "yarn upgrade-interactive"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/neverendingqs/netlify-express.git"
   },
   "keywords": [
-    "netlify",
-    "express.js"
+    "cloudflare-workers",
+    "hono",
+    "tuya",
+    "smart-plug",
+    "monitoring"
   ],
-  "author": "neverendingqs",
+  "author": "tuskotrush",
   "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/neverendingqs/netlify-express/issues"
-  },
-  "homepage": "https://github.com/neverendingqs/netlify-express#readme",
   "dependencies": {
-    "@grammyjs/menu": "^1.2.1",
-    "@netlify/functions": "^2.8.0",
-    "axios": "^1.2.2",
-    "body-parser": "^1.20.2",
-    "dayjs": "^1.11.7",
-    "express": "^4.19.2",
-    "firebase": "^9.16.0",
-    "form-data": "^4.0.1",
-    "grammy": "^1.25.1",
-    "humanize-duration": "^3.28.0",
-    "netlify-cli": "^17.37.2",
-    "serverless-http": "^3.2.0",
-    "short-uuid": "^5.2.0",
-    "whatwg-fetch": "^3.6.20",
-    "xhr2": "^0.2.1"
+    "dayjs": "^1.11.13",
+    "hono": "^4.6.14",
+    "humanize-duration": "^3.32.1",
+    "short-uuid": "^5.2.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "wrangler": "^4.45.0"
   }
 }

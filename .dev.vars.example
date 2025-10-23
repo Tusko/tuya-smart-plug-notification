@@ -1,0 +1,29 @@
+# Environment Variables Example
+# Copy this file to .env for local development
+
+# Node Environment
+NODE_ENV=development
+
+# Firebase Configuration
+FIREBASE_API_KEY=your-firebase-api-key
+FIREBASE_AUTH_DOMAIN=your-firebase-auth-domain
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_STORAGE_BUCKET=your-firebase-storage-bucket
+FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
+FIREBASE_APP_ID=your-firebase-app-id
+FIREBASE_MEASUREMENT_ID=your-measurement-id
+
+# Tuya Smart Plug API
+TUYA_HOST=https://openapi.tuyaeu.com
+TUYA_ACCESS_KEY=your-tuya-access-key
+TUYA_SECRET_KEY=your-tuya-secret-key
+TUYA_DEVICE_ID=your-device-id
+TUYA_TIME_FORMAT=YYYY-MM-DD HH:mm:ss
+
+# Electricity Schedule API
+SCHEDULE_API_URL=https://api.loe.lviv.ua
+
+# Telegram Notifications (for status change alerts)
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+TELEGRAM_BOT_CHAT_ID=your-telegram-chat-id
+

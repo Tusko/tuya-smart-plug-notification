@@ -8,11 +8,17 @@ compatibility_flags = ["nodejs_compat_v2"]
 # Bind environment variables
 [vars]
 NODE_ENV = "production"
+TELEGRAM_BOT_TOKEN = "5976108869:AAHFHnaws69eThgoVNi2SafXiAWKPZScauQ"
+TELEGRAM_BOT_CHAT_ID = "-1001729031870"
 
 # For development
 [env.dev]
 name = "smart-plug-dev"
-vars = { NODE_ENV = "development" }
+
+[env.dev.vars]
+NODE_ENV = "development"
+TELEGRAM_BOT_TOKEN = "6065682184:AAGj99qRP9AlXt5xp3zvaFuEzTy1NaBmSOQ"
+TELEGRAM_BOT_CHAT_ID = "-1003261274470"
 
 # Build configuration
 [build]
@@ -25,4 +31,8 @@ command = ""
 # Observability
 [observability]
 enabled = true
+
+# Cron Triggers - runs every 7 minutes
+[triggers]
+crons = ["*/7 * * * *"]
 

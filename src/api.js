@@ -4,12 +4,12 @@ import smartPlug from "./smart-plug.js";
 const app = new Hono();
 
 app.get("/", async (c) => {
-  const isProd = c.env?.NODE_ENV === "production";
 
+  const noRender = c.req.query("no-render");
   try {
     const { notify, lastGraphics, latestStatus, allStatuses } = await smartPlug(true, c.env);
 
-    let html =
+    let html = noRender ? "" :
       "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'/>" +
       "<title>СвітлоЄ - Tuya Smart Plug</title>" +
       "<style>\
@@ -27,18 +27,18 @@ app.get("/", async (c) => {
       "</pre>";
 
     if (lastGraphics) {
-      html += `<img src="${lastGraphics}" />`;
+      html += noRender ? "" : `<img src="${lastGraphics}" />`;
     }
 
     if (allStatuses.length) {
-      html +=
+      html += noRender ? "" :
         "<p>&nbsp;</p>" +
         "<pre>" +
         JSON.stringify(allStatuses, null, "\t") +
         "</pre>";
     }
 
-    html += "</body></html>";
+    html += noRender ? "" : "</body></html>";
 
     return c.html(html);
   } catch (err) {
@@ -48,6 +48,24 @@ app.get("/", async (c) => {
 });
 
 app.get("/ping", (c) => c.text("ok"));
+
+app.get("/no-render", async (c) => {
+  try {
+    const { notify, latestStatus } = await smartPlug(true, c.env);
+    return c.json({
+      success: true,
+      notify,
+      latestStatus,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    return c.json({
+      success: false,
+      error: err.message,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
 
 export default app;
 

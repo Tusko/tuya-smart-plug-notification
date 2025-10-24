@@ -151,8 +151,6 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
           : "unknown");
     }
 
-    console.log(env.NODE_ENV);
-
     return {
       notify,
       latestStatus,

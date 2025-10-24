@@ -129,9 +129,12 @@ async function getRequestSign(
 
   const querystring = stringifyQuery(sortedQuery);
   const url = querystring ? `${uri}?${querystring}` : uri;
+
+  // For GET requests or empty body, hash empty string instead of "{}"
+  const bodyStr = method === 'GET' || Object.keys(body).length === 0 ? '' : JSON.stringify(body);
   const contentHash = crypto
     .createHash("sha256")
-    .update(JSON.stringify(body))
+    .update(bodyStr)
     .digest("hex");
   const stringToSign = [method, contentHash, "", url].join("\n");
   const signStr = cfg.accessKey + token + t + stringToSign;
@@ -150,10 +153,9 @@ async function getRequestSign(
  */
 export async function getDeviceInfo(deviceId, env = process.env) {
   const cfg = getConfig(env);
-  const query = {};
   const method = "GET";
   const url = `/v1.1/iot-03/devices/${deviceId}`;
-  const reqHeaders = await getRequestSign(url, method, {}, query, {}, cfg);
+  const reqHeaders = await getRequestSign(url, method, {}, {}, {}, cfg);
 
   const response = await httpClient(reqHeaders.path, {
     method,

@@ -9,9 +9,8 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev -e=dev",
     "deploy": "wrangler deploy",
-    "start": "wrangler dev",
     "preview": "wrangler dev --remote",
     "tail": "wrangler tail",
     "clean": "rm -rf node_modules .wrangler dist",

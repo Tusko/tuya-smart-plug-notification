@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "wrangler dev -e=dev",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler deploy -e=production",
     "preview": "wrangler dev --remote",
     "tail": "wrangler tail",
     "clean": "rm -rf node_modules .wrangler dist",

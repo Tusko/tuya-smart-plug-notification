@@ -1,11 +1,10 @@
 node_modules/
 .wrangler/
-.dev.vars
+.vars
+*.vars
 *.log
 .DS_Store
 dist/
-.env
-.env.local
 
 # Wrangler output
 worker/

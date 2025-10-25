@@ -1,167 +1,526 @@
 # Smart Plug Monitor - Cloudflare Workers
 
-A Cloudflare Workers application that monitors a Tuya smart plug status and tracks electricity schedules. Built with Hono framework.
+A serverless Cloudflare Workers application that monitors Tuya smart plug status and tracks electricity schedules. Built with the high-performance Hono framework and deployed on Cloudflare's global edge network.
 
-## Features
+## 🎯 Overview
 
-- 🔌 **Smart Plug Monitoring**: Tracks Tuya smart plug online/offline status
-- 📊 **Firebase Integration**: Stores status history in Firestore
-- 📅 **Schedule Tracking**: Monitors electricity schedule updates
-- 📲 **Telegram Notifications**: Sends alerts when power status changes
-- 🌍 **Edge Computing**: Runs on Cloudflare's global network
-- ⚡ **Fast & Lightweight**: Built with Hono for optimal performance
-- 🔍 **Real-time Status**: Display current power status and history
+This project provides real-time monitoring of a Tuya smart plug's online/offline status, tracks power outage durations, and sends Telegram notifications when the power state changes. It's designed to run efficiently on Cloudflare Workers with automatic scheduled checks every 7 minutes.
 
-## Tech Stack
+<a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Tusko/tuya-smart-plug-notification" target="_blank" rel="noopener"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Workers"></a>
 
-- **Runtime**: Cloudflare Workers
-- **Framework**: Hono (v4.6+)
-- **Database**: Firebase Firestore (v11+)
-- **HTTP Client**: Axios (v1.7+)
-- **Date/Time**: Day.js (v1.11+)
-- **Utilities**: humanize-duration, short-uuid
+## ✨ Features
+
+- 🔌 **Smart Plug Monitoring**: Real-time tracking of Tuya smart plug online/offline status
+- 📊 **Data Persistence**: Stores status history using Firebase Firestore
+- 📅 **Schedule Tracking**: Fetches and monitors electricity schedule updates with visual graphics
+- 📲 **Telegram Notifications**: Automatic alerts when power status changes with duration tracking
+- 🌍 **Edge Computing**: Runs on Cloudflare's global network for low-latency responses
+- ⚡ **Ultra-Fast**: Built with Hono framework optimized for edge runtime
+- ⏰ **Scheduled Tasks**: Automatic cron-based monitoring every 7 minutes
+- 🔍 **Web Interface**: Clean HTML interface showing current status and history
+- 🌐 **API Endpoints**: JSON API for programmatic access to status data
+- 🇺🇦 **Ukrainian Localization**: Includes Ukrainian language support for dates and notifications
+
+## 🛠 Tech Stack
+
+- **Runtime**: Cloudflare Workers (Edge Runtime)
+- **Framework**: [Hono](https://hono.dev/) v4.6+ (Ultra-fast web framework)
+- **Database**: Firebase Firestore (Real-time NoSQL database)
+- **Date/Time**: Day.js v1.11+ with timezone & Ukrainian locale support
+- **Utilities**:
+  - `humanize-duration` - Human-readable duration formatting
+  - `short-uuid` - UUID generation
 - **Package Manager**: Yarn
+- **Deployment**: Wrangler CLI
 
-## Setup
+## 📋 Prerequisites
 
-### Prerequisites
+Before you begin, ensure you have:
 
-- Node.js 22+
-- Yarn package manager
-- Cloudflare account
-- Tuya Cloud account with smart plug configured
-- Firebase project
+- **Node.js** 22.0.0 or higher
+- **Yarn** package manager
+- **Cloudflare Account** (free tier works)
+- **Tuya Cloud Account** with smart plug configured and API credentials
+- **Firebase Project** with Firestore database enabled
+- **Telegram Bot** (optional, for notifications)
+  - Bot token from [@BotFather](https://t.me/botfather)
+  - Chat ID where notifications will be sent
 
-### Installation
+## 🚀 Installation
 
-1. Clone the repository:
+### 1. Clone the Repository
+
 ```bash
 git clone <your-repo-url>
 cd smart-plug
 ```
 
-2. Install dependencies:
+### 2. Install Dependencies
+
 ```bash
 yarn install
 ```
 
-3. Configure environment variables:
+### 3. Configure Environment Variables
+
+Create a `.dev.vars` file for local development:
+
 ```bash
+# Copy the example file
 cp .dev.vars.example .dev.vars
-# Edit .dev.vars with your actual credentials
 ```
 
-### Development
+Edit `.dev.vars` with your actual credentials (see [Environment Variables](#environment-variables) section below).
 
-Start the development server:
+### 4. Login to Cloudflare
+
+```bash
+npx wrangler login
+```
+
+This will open a browser window to authenticate with your Cloudflare account.
+
+## ⚙️ Environment Variables
+
+### Local Development
+
+For local development, create a `.dev.vars` file in the project root:
+
+```bash
+# Firebase Configuration
+FIREBASE_API_KEY=your_firebase_api_key
+FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=123456789
+FIREBASE_APP_ID=1:123456789:web:abcdef
+FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+
+# Tuya Smart Plug Configuration
+TUYA_HOST=https://openapi.tuyaeu.com
+TUYA_ACCESS_KEY=your_tuya_access_key
+TUYA_SECRET_KEY=your_tuya_secret_key
+TUYA_DEVICE_ID=your_device_id
+TUYA_TIME_FORMAT=YYYY-MM-DD HH:mm:ss
+
+# Electricity Schedule API
+SCHEDULE_API_URL=https://api.loe.lviv.ua
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+TELEGRAM_BOT_CHAT_ID=123456789
+
+# Environment
+NODE_ENV=development
+```
+
+### Production Deployment
+
+For production, set environment variables as Cloudflare Workers secrets:
+
+```bash
+# Set each secret individually
+wrangler secret put FIREBASE_API_KEY
+wrangler secret put FIREBASE_AUTH_DOMAIN
+wrangler secret put FIREBASE_PROJECT_ID
+wrangler secret put FIREBASE_STORAGE_BUCKET
+wrangler secret put FIREBASE_MESSAGING_SENDER_ID
+wrangler secret put FIREBASE_APP_ID
+wrangler secret put FIREBASE_MEASUREMENT_ID
+wrangler secret put TUYA_HOST
+wrangler secret put TUYA_ACCESS_KEY
+wrangler secret put TUYA_SECRET_KEY
+wrangler secret put TUYA_DEVICE_ID
+wrangler secret put TUYA_TIME_FORMAT
+wrangler secret put SCHEDULE_API_URL
+wrangler secret put TELEGRAM_BOT_TOKEN
+wrangler secret put TELEGRAM_BOT_CHAT_ID
+wrangler secret put NODE_ENV
+```
+
+Or use the `-e` flag to set secrets for a specific environment:
+
+```bash
+wrangler secret put TUYA_ACCESS_KEY -e production
+```
+
+### Environment Variable Reference
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `FIREBASE_API_KEY` | Firebase API key from project settings | ✅ | - |
+| `FIREBASE_AUTH_DOMAIN` | Firebase authentication domain | ✅ | - |
+| `FIREBASE_PROJECT_ID` | Firebase project ID | ✅ | - |
+| `FIREBASE_STORAGE_BUCKET` | Firebase storage bucket | ✅ | - |
+| `FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID | ✅ | - |
+| `FIREBASE_APP_ID` | Firebase application ID | ✅ | - |
+| `FIREBASE_MEASUREMENT_ID` | Firebase analytics measurement ID | ❌ | - |
+| `TUYA_HOST` | Tuya API endpoint URL | ✅ | `https://openapi.tuyaeu.com` |
+| `TUYA_ACCESS_KEY` | Tuya Cloud project access key | ✅ | - |
+| `TUYA_SECRET_KEY` | Tuya Cloud project secret key | ✅ | - |
+| `TUYA_DEVICE_ID` | Your Tuya smart plug device ID | ✅ | - |
+| `TUYA_TIME_FORMAT` | Date/time format for display | ❌ | `YYYY-MM-DD HH:mm:ss` |
+| `SCHEDULE_API_URL` | Electricity schedule API base URL | ❌ | `https://api.loe.lviv.ua` |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token from @BotFather | ✅ | - |
+| `TELEGRAM_BOT_CHAT_ID` | Telegram chat ID for notifications | ✅ | - |
+| `NODE_ENV` | Environment mode (`development` or `production`) | ❌ | `development` |
+
+## 💻 Development
+
+### Start Local Development Server
+
 ```bash
 yarn dev
 ```
 
 The worker will be available at `http://localhost:8787`
 
-### Deployment
+This runs the worker locally using Wrangler's local development environment.
 
-Deploy to Cloudflare Workers:
+### Test on Cloudflare Edge
+
+```bash
+yarn preview
+```
+
+This deploys to a temporary Cloudflare environment for testing on the actual edge network.
+
+### View Real-time Logs
+
+```bash
+yarn tail
+```
+
+Stream logs from your deployed worker in real-time.
+
+## 🚢 Deployment
+
+### Deploy to Production
+
 ```bash
 yarn deploy
 ```
 
-## Environment Variables
+This deploys to your Cloudflare Workers production environment configured in `wrangler.toml`.
 
-All configuration is managed through environment variables. Copy `.dev.vars.example` to `.dev.vars` for local development.
+### Deploy to Specific Environment
 
-### Required Variables:
-
-**Firebase Configuration:**
-- `FIREBASE_API_KEY` - Firebase API key
-- `FIREBASE_AUTH_DOMAIN` - Firebase auth domain
-- `FIREBASE_PROJECT_ID` - Firebase project ID
-- `FIREBASE_STORAGE_BUCKET` - Firebase storage bucket
-- `FIREBASE_MESSAGING_SENDER_ID` - Firebase messaging sender ID
-- `FIREBASE_APP_ID` - Firebase app ID
-- `FIREBASE_MEASUREMENT_ID` - Firebase measurement ID
-
-**Tuya Smart Plug:**
-- `TUYA_HOST` - Tuya API host (default: https://openapi.tuyaeu.com)
-- `TUYA_ACCESS_KEY` - Tuya access key
-- `TUYA_SECRET_KEY` - Tuya secret key
-- `TUYA_DEVICE_ID` - Your device ID
-- `TUYA_TIME_FORMAT` - Time format (default: YYYY-MM-DD HH:mm:ss)
-
-**Electricity Schedule:**
-- `SCHEDULE_API_URL` - Schedule API URL (default: https://api.loe.lviv.ua)
-
-**Telegram Notifications:**
-- `TELEGRAM_BOT_TOKEN` - Bot token for sending notifications
-- `TELEGRAM_BOT_CHAT_ID` - Chat ID to send notifications to
-
-For production, set secrets using:
 ```bash
-wrangler secret put FIREBASE_API_KEY
-wrangler secret put TUYA_ACCESS_KEY
-wrangler secret put TUYA_SECRET_KEY
-# ... etc for all secrets
+wrangler deploy -e dev
+wrangler deploy -e production
 ```
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 smart-plug/
 ├── src/
-│   ├── index.js          # Main worker entry point
-│   ├── api.js            # API routes with Hono
-│   ├── smart-plug.js     # Smart plug monitoring logic
+│   ├── index.js          # Main Cloudflare Worker entry point
+│   │                     # Handles HTTP requests & scheduled cron tasks
+│   ├── api.js            # Hono API routes
+│   │                     # GET /, /ping, /no-render endpoints
+│   ├── smart-plug.js     # Core monitoring logic
+│   │                     # Checks device status, sends notifications
 │   └── utils/
-│       ├── db.js         # Firebase Firestore helpers
-│       └── tuya-api.js   # Tuya API integration
-├── public/
-│   ├── index.html        # Landing page
-│   └── _routes.json      # Cloudflare routing
+│       ├── db.js         # Firebase Firestore database helpers
+│       │                 # Status tracking, image tracking
+│       └── tuya-api.js   # Tuya Cloud API integration
+│                         # Device authentication & status retrieval
 ├── wrangler.toml         # Cloudflare Workers configuration
 ├── .dev.vars.example     # Environment variables template
-├── package.json
-└── README.md
+├── .dev.vars             # Local environment variables (git-ignored)
+├── package.json          # Node.js dependencies and scripts
+├── yarn.lock             # Yarn dependency lock file
+├── LICENSE               # Apache 2.0 license
+└── README.md             # This file
 ```
 
-## API Endpoints
+## 🔗 API Endpoints
 
-### Main Server (`/api/`)
-- `GET /api/` - Display smart plug status and electricity schedule
-- `GET /api/ping` - Health check endpoint
+### `GET /`
 
-### Root
-- `GET /` - Redirects to `/api/`
-- `GET /health` - Returns health status JSON
+Returns an HTML page with:
+- Current smart plug status (online/offline)
+- Latest status change notification
+- Status history (JSON formatted)
+- Latest electricity schedule graphic
 
-## Scripts
+**Query Parameters:**
+- `no-render` - Skip HTML rendering (for debugging)
+
+**Example:**
+```bash
+curl https://your-worker.workers.dev/
+```
+
+### `GET /ping`
+
+Simple health check endpoint.
+
+**Response:**
+```
+ok
+```
+
+**Example:**
+```bash
+curl https://your-worker.workers.dev/ping
+```
+
+### `GET /no-render`
+
+Returns JSON data without HTML rendering.
+
+**Response:**
+```json
+{
+  "success": true,
+  "notify": "🟡 No changes from 2025-10-25 14:30:00",
+  "latestStatus": {
+    "status": "online",
+    "datetime": {
+      "seconds": 1729866600,
+      "nanoseconds": 0
+    }
+  },
+  "timestamp": "2025-10-25T14:37:15.123Z"
+}
+```
+
+**Example:**
+```bash
+curl https://your-worker.workers.dev/no-render
+```
+
+### `GET /health`
+
+Returns health status in JSON format.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2025-10-25T14:37:15.123Z"
+}
+```
+
+**Example:**
+```bash
+curl https://your-worker.workers.dev/health
+```
+
+### `GET /test-bot`
+
+Tests Telegram bot functionality by sending a test message.
+
+**Response:**
+```
+ok
+```
+
+## ⏰ Scheduled Tasks
+
+The worker automatically runs every **7 minutes** via Cloudflare Cron Triggers, configured in `wrangler.toml`:
+
+```toml
+[triggers]
+crons = ["*/7 * * * *"]
+```
+
+### What Happens During Scheduled Runs:
+
+1. ✅ Fetches current device status from Tuya API
+2. ✅ Compares with last known status in Firestore
+3. ✅ If status changed:
+   - Calculates downtime/uptime duration
+   - Sends Telegram notification
+   - Updates Firestore with new status
+4. ✅ Checks for new electricity schedule graphics
+5. ✅ Sends new schedule images via Telegram if available
+
+### Manual Trigger
+
+You can manually trigger the scheduled task by making an HTTP request with a Cloudflare API token.
+
+## 📦 Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `yarn dev` | Start local development server with hot reload |
+| `yarn deploy` | Deploy to Cloudflare Workers production environment |
+| `yarn preview` | Test deployment on Cloudflare edge (temporary) |
+| `yarn tail` | Stream real-time logs from deployed worker |
+| `yarn clean` | Remove node_modules, .wrangler cache, and dist folder |
+| `yarn update` | Interactive dependency update tool |
+
+## 🔧 Configuration
+
+### `wrangler.toml`
+
+Main Cloudflare Workers configuration file:
+
+```toml
+name = "smart-plug"                    # Worker name
+main = "src/index.js"                  # Entry point
+compatibility_date = "2025-10-23"      # Workers runtime version
+
+# Enable Node.js compatibility for Firebase & other libs
+compatibility_flags = ["nodejs_compat_v2"]
+
+[observability]
+enabled = true                         # Enable metrics & analytics
+
+[triggers]
+crons = ["*/7 * * * *"]               # Run every 7 minutes
+```
+
+## 🌐 How It Works
+
+### 1. **Device Status Monitoring**
+
+The `smart-plug.js` module:
+- Authenticates with Tuya Cloud API
+- Fetches device online/offline status
+- Compares with last known status from Firestore
+- Calculates duration of status changes
+
+### 2. **Notification System**
+
+When status changes:
+- 💡 **Power Restored**: "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: [duration]"
+- 🔴 **Power Lost**: "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: [duration]"
+
+Notifications include human-readable duration in Ukrainian (e.g., "2 години та 15 хвилин").
+
+### 3. **Schedule Graphics**
+
+- Fetches latest electricity schedule from configured API
+- Detects new schedule images
+- Sends images to Telegram when updated
+- Stores image references in Firestore to avoid duplicates
+
+### 4. **Data Persistence**
+
+Firebase Firestore collections:
+- **Statuses**: Tracks device online/offline state changes
+- **Images**: Tracks sent schedule graphics to prevent duplicates
+
+## 🧪 Testing
+
+### Test Locally
 
 ```bash
-yarn dev           # Start local development server
-yarn deploy        # Deploy to Cloudflare Workers
-yarn start         # Alias for dev
-yarn preview       # Test on Cloudflare edge
-yarn tail          # View real-time logs
-yarn clean         # Clean build artifacts
-yarn update        # Interactive package updates
+yarn dev
+# Open http://localhost:8787 in browser
 ```
 
-## Migration from Netlify
+### Test Telegram Bot
 
-This project was migrated from Netlify Functions to Cloudflare Workers. Key changes:
+```bash
+curl https://your-worker.workers.dev/test-bot
+```
 
-1. ✅ Replaced Express.js with Hono
-2. ✅ Updated to ES Modules (`import`/`export`)
-3. ✅ Removed `serverless-http` wrapper
-4. ✅ Updated all dependencies to latest versions
-5. ✅ Removed Telegram bot functionality (simplified)
-6. ✅ Configured for edge runtime compatibility
-7. ✅ All secrets moved to environment variables
+Check your Telegram chat for a "test bot" message.
 
-## License
+### Test Scheduled Task Locally
+
+The cron trigger doesn't run in local development. To test the scheduling logic:
+
+```bash
+# Make a request to trigger the smart plug check
+curl http://localhost:8787/
+```
+
+## 🐛 Troubleshooting
+
+### Worker Not Deploying
+
+```bash
+# Ensure you're logged in
+npx wrangler login
+
+# Check wrangler.toml configuration
+cat wrangler.toml
+
+# Try deploying with verbose output
+npx wrangler deploy --verbose
+```
+
+### Secrets Not Working
+
+```bash
+# List all secrets
+npx wrangler secret list
+
+# Delete and recreate a secret
+npx wrangler secret delete SECRET_NAME
+npx wrangler secret put SECRET_NAME
+```
+
+### Firebase Connection Issues
+
+- Verify all Firebase environment variables are set correctly
+- Check Firebase project permissions
+- Ensure Firestore database is created and accessible
+
+### Tuya API Issues
+
+- Verify device ID is correct
+- Check Tuya Cloud project status and API limits
+- Ensure access key and secret key are valid
+- Confirm API endpoint (`TUYA_HOST`) matches your region
+
+## 📊 Monitoring
+
+### View Worker Analytics
+
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com)
+2. Navigate to Workers & Pages
+3. Select your worker
+4. View metrics: requests, errors, CPU time, etc.
+
+### Real-time Logs
+
+```bash
+yarn tail
+```
+
+### Observability
+
+The worker has observability enabled in `wrangler.toml`, providing:
+- Request/response metrics
+- Error tracking
+- Performance data
+- Worker analytics
+
+## 🔒 Security Best Practices
+
+- ✅ **Never commit `.dev.vars`** - It's git-ignored by default
+- ✅ **Use Wrangler secrets for production** - Not environment variables in `wrangler.toml`
+- ✅ **Rotate API keys regularly** - Especially Tuya and Firebase keys
+- ✅ **Limit Firebase permissions** - Use minimal required permissions
+- ✅ **Monitor worker logs** - Watch for unauthorized access attempts
+
+## 📄 License
 
 Apache-2.0
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### How to Contribute
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 🙏 Acknowledgments
+
+- [Cloudflare Workers](https://workers.cloudflare.com/) - Edge computing platform
+- [Hono](https://hono.dev/) - Ultra-fast web framework
+- [Tuya](https://developer.tuya.com/) - Smart device platform
+- [Firebase](https://firebase.google.com/) - Real-time database
+- [Telegram Bot API](https://core.telegram.org/bots/api) - Messaging platform

@@ -130,6 +130,22 @@ export async function insertImage(image, env = process.env) {
   });
 }
 
+export const insertNextNotification = async (date, env = process.env) => {
+  const db = new FirestoreREST(env);
+  const documentId = shortID().uuid();
+
+  return db.createDocument('notifications', documentId, {
+    date,
+    datetime: new Date(),
+  });
+}
+// get latest notification
+export async function getLatestNotification(env = process.env) {
+  const db = new FirestoreREST(env);
+  const results = await db.queryDocuments('notifications', 'datetime', 'DESCENDING', 1);
+  return results?.[0]?.date;
+}
+
 export async function getLatestStatus(env = process.env) {
   const db = new FirestoreREST(env);
   const results = await db.queryDocuments('statuses', 'datetime', 'DESCENDING', 1);
@@ -144,7 +160,8 @@ export async function getLatestImage(env = process.env) {
   return results.length > 0 ? results[0] : null;
 }
 
-export async function getAllStatuses(isProd = true, env = process.env) {
+export async function getAllStatuses(env = process.env) {
+  const isProd = Boolean(env.NODE_ENV === 'production');
   if (isProd) return [];
 
   try {

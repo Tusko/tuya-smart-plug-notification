@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import apiApp from "./api.js";
 import smartPlug from "./smart-plug.js";
+import { sendTelegramMessage } from "./utils/telegram.js";
 
 const app = new Hono();
 
@@ -14,16 +15,7 @@ app
     const chatID = c.env.TELEGRAM_BOT_CHAT_ID;
     const botToken = c.env.TELEGRAM_BOT_TOKEN;
     try {
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          text: 'test bot',
-          chat_id: chatID,
-        })
-      });
+      await sendTelegramMessage(botToken, chatID, 'test bot');
     } catch (error) {
       console.error('Test bot error:', error);
       return c.text('error', 500);

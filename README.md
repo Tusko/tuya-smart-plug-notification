@@ -13,6 +13,9 @@ This project provides real-time monitoring of a Tuya smart plug's online/offline
 - 🔌 **Smart Plug Monitoring**: Real-time tracking of Tuya smart plug online/offline status
 - 📊 **Data Persistence**: Stores status history using Firebase Firestore
 - 📅 **Schedule Tracking**: Fetches and monitors electricity schedule updates with visual graphics
+- 🤖 **AI Image Analysis**:
+  - Cloudflare AI-powered OCR using llava-1.5-7b-hf vision model
+  - Google Gemini API integration for advanced image-to-JSON extraction
 - 📲 **Telegram Notifications**: Automatic alerts when power status changes with duration tracking
 - 🌍 **Edge Computing**: Runs on Cloudflare's global network for low-latency responses
 - ⚡ **Ultra-Fast**: Built with Hono framework optimized for edge runtime
@@ -25,6 +28,7 @@ This project provides real-time monitoring of a Tuya smart plug's online/offline
 
 - **Runtime**: Cloudflare Workers (Edge Runtime)
 - **Framework**: [Hono](https://hono.dev/) v4.6+ (Ultra-fast web framework)
+- **AI/ML**: Cloudflare Workers AI with llava-1.5-7b-hf vision model
 - **Database**: Firebase Firestore (Real-time NoSQL database)
 - **Date/Time**: Day.js v1.11+ with timezone & Ukrainian locale support
 - **Utilities**:
@@ -110,6 +114,9 @@ SCHEDULE_API_URL=https://api.loe.lviv.ua
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 TELEGRAM_BOT_CHAT_ID=123456789
 
+# Google Gemini API (optional - for advanced image analysis)
+GEMINI_API_KEY=your_gemini_api_key
+
 # Environment
 NODE_ENV=development
 ```
@@ -135,6 +142,7 @@ wrangler secret put TUYA_TIME_FORMAT
 wrangler secret put SCHEDULE_API_URL
 wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put TELEGRAM_BOT_CHAT_ID
+wrangler secret put GEMINI_API_KEY  # Optional - for Gemini image analysis
 wrangler secret put NODE_ENV
 ```
 
@@ -163,6 +171,7 @@ wrangler secret put TUYA_ACCESS_KEY -e production
 | `SCHEDULE_API_URL` | Electricity schedule API base URL | ❌ | `https://api.loe.lviv.ua` |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token from @BotFather | ✅ | - |
 | `TELEGRAM_BOT_CHAT_ID` | Telegram chat ID for notifications | ✅ | - |
+| `GEMINI_API_KEY` | Google Gemini API key for advanced image analysis | ❌ | - |
 | `NODE_ENV` | Environment mode (`development` or `production`) | ❌ | `development` |
 
 ## 💻 Development
@@ -219,18 +228,24 @@ smart-plug/
 │   │                     # Handles HTTP requests & scheduled cron tasks
 │   ├── api.js            # Hono API routes
 │   │                     # GET /, /ping, /no-render endpoints
+│   │                     # POST /analyze-image, /analyze-schedule, etc.
 │   ├── smart-plug.js     # Core monitoring logic
 │   │                     # Checks device status, sends notifications
 │   └── utils/
 │       ├── db.js         # Firebase Firestore database helpers
 │       │                 # Status tracking, image tracking
-│       └── tuya-api.js   # Tuya Cloud API integration
-│                         # Device authentication & status retrieval
+│       ├── tuya-api.js   # Tuya Cloud API integration
+│       │                 # Device authentication & status retrieval
+│       └── imgToJSON.js  # Cloudflare AI image analysis
+│                         # Vision model integration for OCR & data extraction
 ├── wrangler.toml         # Cloudflare Workers configuration
+│                         # Includes AI binding for Workers AI
 ├── .dev.vars.example     # Environment variables template
 ├── .dev.vars             # Local environment variables (git-ignored)
 ├── package.json          # Node.js dependencies and scripts
 ├── yarn.lock             # Yarn dependency lock file
+├── test-image-analysis.js # Test script for AI image analysis
+├── IMAGE_ANALYSIS.md     # Detailed AI image analysis documentation
 ├── LICENSE               # Apache 2.0 license
 └── README.md             # This file
 ```
@@ -318,6 +333,168 @@ Tests Telegram bot functionality by sending a test message.
 ok
 ```
 
+### `POST /analyze-image`
+
+Analyzes an image using Cloudflare AI's llava-1.5-7b-hf vision model and returns structured JSON data.
+
+**Request Body:**
+```json
+{
+  "imageUrl": "https://example.com/image.jpg",
+  "prompt": "Optional custom prompt"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "title": "extracted title",
+    "company": "company name",
+    "groups": [...],
+    "additionalText": "other relevant text"
+  },
+  "modelUsed": "@cf/llava-hf/llava-1.5-7b-hf",
+  "timestamp": "2025-11-02T..."
+}
+```
+
+**Example:**
+```bash
+curl -X POST https://your-worker.workers.dev/analyze-image \
+  -H "Content-Type: application/json" \
+  -d '{"imageUrl": "https://example.com/schedule.jpg"}'
+```
+
+### `POST /analyze-schedule`
+
+Specialized endpoint for analyzing power schedule images with predefined prompts using Cloudflare AI.
+
+**Request Body:**
+```json
+{
+  "imageUrl": "https://example.com/schedule.jpg"
+}
+```
+
+**Example:**
+```bash
+curl -X POST https://your-worker.workers.dev/analyze-schedule \
+  -H "Content-Type: application/json" \
+  -d '{"imageUrl": "https://example.com/schedule.jpg"}'
+```
+
+### `POST /analyze-gemini`
+
+Analyzes one or more images using **Google Gemini API** (gemini-2.0-flash-exp model). This endpoint provides more accurate OCR and data extraction compared to Cloudflare AI, especially for complex images with text.
+
+**Request Body:**
+```json
+{
+  "imageUrls": ["https://example.com/img1.jpg", "https://example.com/img2.jpg"],
+  "prompt": "Optional custom prompt for analysis",
+  "mimeType": "image/jpeg"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "image_1_data": { ... },
+    "image_2_data": { ... }
+  },
+  "modelUsed": "gemini-2.0-flash-exp",
+  "imagesProcessed": 2,
+  "timestamp": "2025-11-02T..."
+}
+```
+
+**Example:**
+```bash
+curl -X POST https://your-worker.workers.dev/analyze-gemini \
+  -H "Content-Type: application/json" \
+  -d '{
+    "imageUrls": ["https://example.com/schedule1.jpg", "https://example.com/schedule2.jpg"],
+    "prompt": "Extract power schedule data from these images"
+  }'
+```
+
+**Requirements:**
+- Set `GEMINI_API_KEY` environment variable (get it from [Google AI Studio](https://aistudio.google.com/app/apikey))
+
+### `POST /analyze-schedule-gemini`
+
+Specialized endpoint for analyzing power schedule images using **Google Gemini API** with optimized prompts for Ukrainian power schedule extraction.
+
+**Request Body:**
+```json
+{
+  "imageUrl": "https://example.com/schedule.jpg"
+}
+```
+
+Or for multiple images:
+```json
+{
+  "imageUrls": ["https://example.com/schedule1.jpg", "https://example.com/schedule2.jpg"]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "title": "31.10.2025",
+    "company": "ЛЬВІВОБЛЕНЕРГО",
+    "groups": [
+      {
+        "id": "1.1",
+        "status": "Електроенергії немає",
+        "schedule": "з 14:00 по 15:30"
+      }
+    ]
+  },
+  "modelUsed": "gemini-2.0-flash-exp",
+  "imagesProcessed": 1,
+  "timestamp": "2025-11-02T..."
+}
+```
+
+**Example:**
+```bash
+curl -X POST https://your-worker.workers.dev/analyze-schedule-gemini \
+  -H "Content-Type: application/json" \
+  -d '{"imageUrl": "https://example.com/schedule.jpg"}'
+```
+
+**Requirements:**
+- Set `GEMINI_API_KEY` environment variable
+
+### `POST /analyze-multiple-images`
+
+Batch analyze multiple images in parallel.
+
+**Request Body:**
+```json
+{
+  "imageUrls": ["https://example.com/img1.jpg", "https://example.com/img2.jpg"],
+  "prompt": "Optional custom prompt"
+}
+```
+
+**Example:**
+```bash
+curl -X POST https://your-worker.workers.dev/analyze-multiple-images \
+  -H "Content-Type: application/json" \
+  -d '{"imageUrls": ["https://example.com/img1.jpg", "https://example.com/img2.jpg"]}'
+```
+
+> 📖 For detailed image analysis documentation, see [IMAGE_ANALYSIS.md](./IMAGE_ANALYSIS.md)
+
 ## ⏰ Scheduled Tasks
 
 The worker automatically runs every **7 minutes** via Cloudflare Cron Triggers, configured in `wrangler.toml`:
@@ -372,6 +549,9 @@ enabled = true                         # Enable metrics & analytics
 
 [triggers]
 crons = ["*/7 * * * *"]               # Run every 7 minutes
+
+[ai]
+binding = "AI"                        # Workers AI binding for image analysis
 ```
 
 ## 🌐 How It Works
@@ -421,6 +601,18 @@ curl https://your-worker.workers.dev/test-bot
 ```
 
 Check your Telegram chat for a "test bot" message.
+
+### Test AI Image Analysis
+
+```bash
+# Start dev server
+yarn dev
+
+# Run test script in another terminal
+node test-image-analysis.js
+```
+
+This will test all AI image analysis endpoints with example images.
 
 ### Test Scheduled Task Locally
 

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import smartPlug from "./smart-plug.js";
+import { analyzeImageWithGemini } from "./utils/gemini.js";
 
 const app = new Hono();
 
@@ -59,6 +60,65 @@ app.get("/no-render", async (c) => {
       timestamp: new Date().toISOString()
     });
   } catch (err) {
+    return c.json({
+      success: false,
+      error: err.message,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
+// AI Image Analysis Endpoints
+
+/**
+ * POST /analyze-gemini
+ * Analyzes one or more images using Google Gemini API
+ * Body: { "prompt": "...", "imageUrl": "https://...", "mimeType": "image/jpeg" }
+ */
+app.post("/analyze-gemini", async (c) => {
+  const isDev = c.env.NODE_ENV === "development";
+
+  if (!isDev) {
+    return c.json({
+      success: true,
+      data: {
+        message: "Hello from Gemini API!"
+      }
+    });
+  }
+
+  try {
+    const body = await c.req.json();
+    const { prompt, imageUrl, mimeType } = body;
+
+    if (!imageUrl) {
+      return c.json({
+        success: false,
+        error: "Missing or invalid input. Need an imageUrl."
+      }, 400);
+    }
+
+    if (!c.env.GEMINI_API_KEY) {
+      return c.json({
+        success: false,
+        error: "GEMINI_API_KEY not configured. Please add GEMINI_API_KEY to your environment variables."
+      }, 500);
+    }
+
+    const result = await analyzeImageWithGemini({
+      apiKey: c.env.GEMINI_API_KEY,
+      imageUrl,
+      prompt,
+      mimeType
+    });
+
+    return c.json({
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (err) {
+    console.error("Error in /analyze-gemini:", err);
     return c.json({
       success: false,
       error: err.message,

@@ -47,8 +47,9 @@ export async function getScheduleFormattedDate(OCRResult, env) {
           const startTime = timeParts[0];
           const endTime = timeParts[1];
 
-          const startDateTime = dayjs(`${date} ${startTime}`, "DD.MM.YYYY HH:mm", true);
-          const endDateTime = dayjs(`${date} ${endTime}`, "DD.MM.YYYY HH:mm", true);
+          // Parse date as if it's in Europe/Kiev timezone
+          const startDateTime = dayjs.tz(`${date} ${startTime}`, "DD.MM.YYYY HH:mm", "Europe/Kiev");
+          const endDateTime = dayjs.tz(`${date} ${endTime}`, "DD.MM.YYYY HH:mm", "Europe/Kiev");
 
           // Handle case where end time is next day (e.g., 21:30-24:00 becomes 21:30-00:00 next day)
           let actualEndDateTime = endDateTime;
@@ -57,34 +58,36 @@ export async function getScheduleFormattedDate(OCRResult, env) {
           }
 
           if (startDateTime.isValid() && actualEndDateTime.isValid()) {
-            // Check if this range hasn't ended yet (end time is in the future)
-            if (actualEndDateTime.isAfter(now)) {
+            // Check if this range hasn't started yet (start time is in the future)
+            // Skip ranges that are currently ongoing or have already ended
+            if (startDateTime.isAfter(now)) {
               nextTimeRange = { startTime, endTime, startDateTime, endDateTime: actualEndDateTime };
               break; // Found the next upcoming range
             }
           } else {
-            console.log(`[WARN] Invalid datetime parsing: date=${date}, startTime=${startTime}, endTime=${endTime}`);
+            console.log(`[WARN] Invalid datetime parsing: date=${date}, startTime=${startTime}, endTime=${endTime}, startValid=${startDateTime.isValid()}, endValid=${actualEndDateTime.isValid()}`);
           }
         } else {
           console.log(`[WARN] Invalid time range format: ${timeRange}`);
         }
       }
 
-      // If no upcoming range found, use the first one (for next day scenarios or if all ranges have passed)
+      // If no upcoming range found, use the first one only if its start time is in the future
       if (!nextTimeRange && timeRanges.length > 0) {
         const firstRange = timeRanges[0].split('-').map(part => part.trim());
         if (firstRange.length === 2 && firstRange[0] && firstRange[1]) {
           const startTime = firstRange[0];
           const endTime = firstRange[1];
-          const startDateTime = dayjs(`${date} ${startTime}`, "DD.MM.YYYY HH:mm", true);
-          let endDateTime = dayjs(`${date} ${endTime}`, "DD.MM.YYYY HH:mm", true);
+          // Parse date as if it's in Europe/Kiev timezone
+          const startDateTime = dayjs.tz(`${date} ${startTime}`, "DD.MM.YYYY HH:mm", "Europe/Kiev");
+          let endDateTime = dayjs.tz(`${date} ${endTime}`, "DD.MM.YYYY HH:mm", "Europe/Kiev");
 
           // Handle case where end time is next day
           if (endDateTime.isBefore(startDateTime)) {
             endDateTime = endDateTime.add(1, 'day');
           }
 
-          if (startDateTime.isValid() && endDateTime.isValid()) {
+          if (startDateTime.isValid() && endDateTime.isValid() && startDateTime.isAfter(now)) {
             nextTimeRange = { startTime, endTime, startDateTime, endDateTime };
           }
         }
@@ -106,15 +109,15 @@ export async function getScheduleFormattedDate(OCRResult, env) {
 
         formattedDate = `${date} ${nextTimeRange.startTime}`;
       } else {
-        console.log(`[WARN] No valid time range found for group ${env.SCHEDULE_ID}, date: ${date}, schedule: ${schedule}`);
+        console.log(`[WARN] No valid time range found for group ${env.SCHEDULE_ID}, date: ${date}, schedule: ${schedule}, now: ${now.format("DD.MM.YYYY HH:mm")}`);
       }
     }
 
-      return {formattedDate, durationText};
-    } else {
-      console.log('[WARN] OCRResult.groups is empty or undefined');
-      return {formattedDate: '', durationText: ''};
-    }
+  } else {
+    console.log('[WARN] OCRResult.groups is empty or undefined');
+  }
+
+  return {formattedDate, durationText};
 }
 
 async function scrapeAndSendImage(telegramBotToken, chatId, env) {
@@ -149,7 +152,7 @@ async function scrapeAndSendImage(telegramBotToken, chatId, env) {
         imageUrl: lastImage,
       });
 
-      const {formattedDate, durationText} = getScheduleFormattedDate(OCRResult, env);
+      const {formattedDate, durationText} = await getScheduleFormattedDate(OCRResult, env);
 
       await insertNextNotification(formattedDate, env);
 

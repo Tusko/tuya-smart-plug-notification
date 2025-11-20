@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import smartPlug from "./smart-plug.js";
 import { analyzeImageWithGemini } from "./utils/gemini.js";
+import { getScheduleFormattedDate } from "./smart-plug.js";
 
 const app = new Hono();
 
@@ -46,6 +47,30 @@ app.get("/", async (c) => {
     const errorHtml = "<h2>Hello from Tuya Smart Plug!</h2><br>" + err.message;
     return c.html(errorHtml, 500);
   }
+});
+
+app.get("/test-image-result", async (c) => {
+  const testImage = c.req.query("image");
+  if (!testImage) {
+    return c.json({
+      success: false,
+      error: "Missing or invalid input. Need an `image`."
+    }, 400);
+  }
+
+  const env = c.env;
+
+  const {data: OCRResult} = await analyzeImageWithGemini({
+    apiKey: env.GEMINI_API_KEY,
+    imageUrl: testImage,
+  });
+
+  const {formattedDate, durationText} = await getScheduleFormattedDate(OCRResult, env);
+
+  return c.json({
+    formattedDate,
+    durationText
+  })
 });
 
 app.get("/ping", (c) => c.text("ok"));

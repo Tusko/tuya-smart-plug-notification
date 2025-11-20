@@ -1,6 +1,7 @@
 import * as db from "./utils/db.js";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime.js";
+import customParseFormat from "dayjs/plugin/customParseFormat.js";
 import utc from "dayjs/plugin/utc.js";
 import timezone from "dayjs/plugin/timezone.js";
 import humanizeDuration from "humanize-duration";
@@ -9,11 +10,112 @@ import { getToken, getDeviceInfo } from "./utils/tuya-api.js";
 import { analyzeImageWithGemini } from "./utils/gemini.js";
 import { sendTelegramMessage, sendTelegramPhoto } from "./utils/telegram.js";
 
-
 dayjs.extend(relativeTime);
 dayjs.extend(timezone);
 dayjs.extend(utc);
 dayjs.locale("uk");
+dayjs.tz.setDefault("Europe/Kiev");
+dayjs.extend(customParseFormat);
+
+export async function getScheduleFormattedDate(OCRResult, env) {
+  let formattedDate = '';
+  let durationText = '';
+
+  if(OCRResult.groups && OCRResult.groups.length > 0) {
+    const myGroup = OCRResult.groups.find(({ id }) => id === env.SCHEDULE_ID);
+
+    if (!myGroup) {
+      console.log(`[WARN] Group with id ${env.SCHEDULE_ID} not found in OCR results`);
+    } else if (!myGroup.date) {
+      console.log(`[WARN] Group ${env.SCHEDULE_ID} has no date`);
+    } else if (!myGroup.schedule || !myGroup.schedule.trim()) {
+      console.log(`[WARN] Group ${env.SCHEDULE_ID} has no schedule`);
+    } else {
+      const date = myGroup.date;
+      const schedule = myGroup.schedule.trim();
+
+      // Handle multiple time ranges separated by commas (e.g., "00:30-04:00, 11:00-18:00, 21:30-24:00")
+      const timeRanges = schedule.split(',').map(range => range.trim()).filter(range => range.length > 0);
+      const now = dayjs();
+
+      let nextTimeRange = null;
+
+      // Find the next upcoming time range
+      for (const timeRange of timeRanges) {
+        const timeParts = timeRange.split('-').map(part => part.trim());
+        if (timeParts.length === 2 && timeParts[0] && timeParts[1]) {
+          const startTime = timeParts[0];
+          const endTime = timeParts[1];
+
+          const startDateTime = dayjs(`${date} ${startTime}`, "DD.MM.YYYY HH:mm", true);
+          const endDateTime = dayjs(`${date} ${endTime}`, "DD.MM.YYYY HH:mm", true);
+
+          // Handle case where end time is next day (e.g., 21:30-24:00 becomes 21:30-00:00 next day)
+          let actualEndDateTime = endDateTime;
+          if (endDateTime.isBefore(startDateTime)) {
+            actualEndDateTime = endDateTime.add(1, 'day');
+          }
+
+          if (startDateTime.isValid() && actualEndDateTime.isValid()) {
+            // Check if this range hasn't ended yet (end time is in the future)
+            if (actualEndDateTime.isAfter(now)) {
+              nextTimeRange = { startTime, endTime, startDateTime, endDateTime: actualEndDateTime };
+              break; // Found the next upcoming range
+            }
+          } else {
+            console.log(`[WARN] Invalid datetime parsing: date=${date}, startTime=${startTime}, endTime=${endTime}`);
+          }
+        } else {
+          console.log(`[WARN] Invalid time range format: ${timeRange}`);
+        }
+      }
+
+      // If no upcoming range found, use the first one (for next day scenarios or if all ranges have passed)
+      if (!nextTimeRange && timeRanges.length > 0) {
+        const firstRange = timeRanges[0].split('-').map(part => part.trim());
+        if (firstRange.length === 2 && firstRange[0] && firstRange[1]) {
+          const startTime = firstRange[0];
+          const endTime = firstRange[1];
+          const startDateTime = dayjs(`${date} ${startTime}`, "DD.MM.YYYY HH:mm", true);
+          let endDateTime = dayjs(`${date} ${endTime}`, "DD.MM.YYYY HH:mm", true);
+
+          // Handle case where end time is next day
+          if (endDateTime.isBefore(startDateTime)) {
+            endDateTime = endDateTime.add(1, 'day');
+          }
+
+          if (startDateTime.isValid() && endDateTime.isValid()) {
+            nextTimeRange = { startTime, endTime, startDateTime, endDateTime };
+          }
+        }
+      }
+
+      if (nextTimeRange) {
+        // Calculate duration
+        const durationMinutes = nextTimeRange.endDateTime.diff(nextTimeRange.startDateTime, 'minutes');
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+
+        if (hours > 0 && minutes > 0) {
+          durationText = ` (тривалість: ${hours} год ${minutes} хв)`;
+        } else if (hours > 0) {
+          durationText = ` (тривалість: ${hours} год)`;
+        } else if (minutes > 0) {
+          durationText = ` (тривалість: ${minutes} хв)`;
+        }
+
+        formattedDate = `${date} ${nextTimeRange.startTime}`;
+      } else {
+        console.log(`[WARN] No valid time range found for group ${env.SCHEDULE_ID}, date: ${date}, schedule: ${schedule}`);
+      }
+    }
+
+      return {formattedDate, durationText};
+    } else {
+      console.log('[WARN] OCRResult.groups is empty or undefined');
+      return {formattedDate: '', durationText: ''};
+    }
+}
 
 async function scrapeAndSendImage(telegramBotToken, chatId, env) {
   const { getLatestImage, insertImage, insertNextNotification, getLatestNotification } = db;
@@ -47,23 +149,16 @@ async function scrapeAndSendImage(telegramBotToken, chatId, env) {
         imageUrl: lastImage,
       });
 
-    let formattedDate = '';
+      const {formattedDate, durationText} = getScheduleFormattedDate(OCRResult, env);
 
-      if(OCRResult.groups.length > 0) {
-        const myGroup = OCRResult.groups.find(({ id }) => id === env.SCHEDULE_ID);
-        const date = myGroup.date;
-        const schedule = myGroup.schedule?.split('-')?.[0];
-        formattedDate = myGroup.schedule?.length ? `${date} ${schedule}` : '';
-
-        await insertNextNotification(formattedDate, env);
-      }
+      await insertNextNotification(formattedDate, env);
 
       await sendTelegramPhoto(
         telegramBotToken,
         chatId,
         lastImage,
         formattedDate ?
-          "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + "): " + formattedDate :
+          "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + "): " + formattedDate + durationText :
           "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + ") не визначено"
       );
     } catch (e) {

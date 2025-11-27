@@ -120,7 +120,7 @@ export async function getScheduleFormattedDate(OCRResult, env) {
   return {formattedDate, durationText};
 }
 
-async function scrapeAndSendImage(telegramBotToken, chatId, env) {
+async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   const { getLatestImage, insertImage, insertNextNotification, getLatestNotification } = db;
   const latestImage = await getLatestImage(env);
 
@@ -156,14 +156,13 @@ async function scrapeAndSendImage(telegramBotToken, chatId, env) {
 
       await insertNextNotification(formattedDate, env);
 
-      await sendTelegramPhoto(
-        telegramBotToken,
-        chatId,
-        lastImage,
-        formattedDate ?
-          "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + "): " + formattedDate + durationText :
-          "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + ") не визначено"
-      );
+      const caption = formattedDate ?
+        "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + "): " + formattedDate + durationText :
+        "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + ") не визначено";
+
+      await Promise.all(chatIds.map(chatId =>
+        sendTelegramPhoto(telegramBotToken, chatId, lastImage, caption)
+      ));
     } catch (e) {
       console.error("TG image post error:", e);
     }
@@ -185,12 +184,11 @@ async function scrapeAndSendImage(telegramBotToken, chatId, env) {
         // For 10 min: check between 10 and 3 minutes (7 min window)
         if(diff > 0 && ((diff <= 30 && diff > 23) || (diff <= 10 && diff > 3))) {
           const minutesLeft = (diff <= 30 && diff > 23) ? 30 : 10;
-          await sendTelegramMessage(
-            telegramBotToken,
-            chatId,
-            `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n
-                Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")}`
-          );
+          const message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n
+                Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")}`;
+          await Promise.all(chatIds.map(chatId =>
+            sendTelegramMessage(telegramBotToken, chatId, message)
+          ));
         }
       }
     }
@@ -201,7 +199,18 @@ async function scrapeAndSendImage(telegramBotToken, chatId, env) {
 
 export default async function smartPlug(tgMsg = true, env = process.env) {
   const botID = env.TELEGRAM_BOT_TOKEN;
-  const chatID = env.TELEGRAM_BOT_CHAT_ID;
+  let chatIDs = env.TELEGRAM_BOT_CHAT_ID;
+  if (typeof chatIDs === 'string') {
+    try {
+      chatIDs = JSON.parse(chatIDs);
+    } catch (e) {
+      // If parsing fails, treat as single value
+      chatIDs = [chatIDs];
+    }
+  }
+  if (!Array.isArray(chatIDs)) {
+    chatIDs = [chatIDs];
+  }
   const deviceId = env.TUYA_DEVICE_ID;
   const timeFormat = env.TUYA_TIME_FORMAT || "YYYY-MM-DD HH:mm:ss";
 
@@ -212,7 +221,7 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
 
   const latestStatus = await getLatestStatus(env);
 
-  const lastGraphics = await scrapeAndSendImage(botID, chatID, env);
+  const lastGraphics = await scrapeAndSendImage(botID, chatIDs, env);
 
   try {
     const deviceInfo = await getDeviceInfo(deviceId, env);
@@ -263,7 +272,7 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
   } finally {
     if (notify) {
       if (tgMsg) {
-        await sendTelegramMessage(botID, chatID, notify);
+        await Promise.all(chatIDs.map(chatID => sendTelegramMessage(botID, chatID, notify)));
       }
     } else {
       notify =

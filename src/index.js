@@ -12,10 +12,21 @@ app
   .notFound((c) => c.text('🙈 Route not found', 404))
   .get("/test-bot", async (c) => {
     console.log('Test bot request:', c.env);
-    const chatID = c.env.TELEGRAM_BOT_CHAT_ID;
+    let chatIDs = c.env.TELEGRAM_BOT_CHAT_ID;
+    if (typeof chatIDs === 'string') {
+      try {
+        chatIDs = JSON.parse(chatIDs);
+      } catch (e) {
+        // If parsing fails, treat as single value
+        chatIDs = [chatIDs];
+      }
+    }
+    if (!Array.isArray(chatIDs)) {
+      chatIDs = [chatIDs];
+    }
     const botToken = c.env.TELEGRAM_BOT_TOKEN;
     try {
-      await sendTelegramMessage(botToken, chatID, 'test bot');
+      await Promise.all(chatIDs.map(chatID => sendTelegramMessage(botToken, chatID, 'test bot')));
     } catch (error) {
       console.error('Test bot error:', error);
       return c.text('error', 500);

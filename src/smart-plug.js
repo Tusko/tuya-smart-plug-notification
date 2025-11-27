@@ -177,7 +177,7 @@ async function scrapeAndSendImage(telegramBotToken, chatId, env) {
       // Try parsing with time first, then without time
       const notificationDate = dayjs(latestNotification, ["DD.MM.YYYY HH:mm", "DD.MM.YYYY"], true);
 
-      if(notificationDate.isValid()) {
+      if(notificationDate.isValid() && notificationDate.isBefore(now)) {
         const diff = notificationDate.diff(now, "minutes");
 
         // Check if we're within the 7-minute cron window (runs every 7 minutes)
@@ -188,7 +188,8 @@ async function scrapeAndSendImage(telegramBotToken, chatId, env) {
           await sendTelegramMessage(
             telegramBotToken,
             chatId,
-            `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\nДата: ${latestNotification}`
+            `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n
+                Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")}`
           );
         }
       }

@@ -134,6 +134,12 @@ export const insertNextNotification = async (date, env = process.env) => {
   const db = new FirestoreREST(env);
   const documentId = shortID().uuid();
 
+  // check if notification already exists with same date
+  const latestNotification = await getLatestNotification(env);
+  if(latestNotification === date) {
+    return;
+  }
+
   return db.createDocument('notifications', documentId, {
     date,
     datetime: new Date(),

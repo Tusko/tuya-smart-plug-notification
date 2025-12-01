@@ -172,9 +172,13 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
     const latestNotification = await getLatestNotification(env);
     // send 30 and 10 min before notification
     if(latestNotification) {
-      const now = dayjs();
+      const now = dayjs.tz("Europe/Kiev");
       // Try parsing with time first, then without time
-      const notificationDate = dayjs(latestNotification, ["DD.MM.YYYY HH:mm", "DD.MM.YYYY"], true);
+      // Parse as Europe/Kiev timezone
+      let notificationDate = dayjs.tz(latestNotification, "DD.MM.YYYY HH:mm", "Europe/Kiev");
+      if (!notificationDate.isValid()) {
+        notificationDate = dayjs.tz(latestNotification, "DD.MM.YYYY", "Europe/Kiev");
+      }
 
       if(notificationDate.isValid() && notificationDate.isAfter(now)) {
         const diff = notificationDate.diff(now, "minutes");

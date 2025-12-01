@@ -188,8 +188,8 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         // For 10 min: check between 10 and 3 minutes (7 min window)
         if(diff > 0 && ((diff <= 30 && diff > 23) || (diff <= 10 && diff > 3))) {
           const minutesLeft = (diff <= 30 && diff > 23) ? 30 : 10;
-          const message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n
-                Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")}`;
+          let message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n`;
+          message += `Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")} (Europe/Kyiv)\n`;
           await Promise.all(chatIds.map(chatId =>
             sendTelegramMessage(telegramBotToken, chatId, message)
           ));

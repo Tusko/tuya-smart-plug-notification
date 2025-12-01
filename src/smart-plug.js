@@ -176,7 +176,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
       // Try parsing with time first, then without time
       const notificationDate = dayjs(latestNotification, ["DD.MM.YYYY HH:mm", "DD.MM.YYYY"], true);
 
-      if(notificationDate.isValid() && notificationDate.isBefore(now)) {
+      if(notificationDate.isValid() && notificationDate.isAfter(now)) {
         const diff = notificationDate.diff(now, "minutes");
 
         // Check if we're within the 7-minute cron window (runs every 7 minutes)

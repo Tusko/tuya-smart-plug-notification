@@ -172,28 +172,32 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
     const latestNotification = await getLatestNotification(env);
     // send 30 and 10 min before notification
     if(latestNotification) {
-      const now = dayjs.tz("Europe/Kiev");
-      // Try parsing with time first, then without time
-      // Parse as Europe/Kiev timezone
-      let notificationDate = dayjs.tz(latestNotification, "DD.MM.YYYY HH:mm", "Europe/Kiev");
-      if (!notificationDate.isValid()) {
-        notificationDate = dayjs.tz(latestNotification, "DD.MM.YYYY", "Europe/Kiev");
-      }
+      try {
+        const now = dayjs().tz("Europe/Kiev");
+        // Try parsing with time first, then without time
+        // Parse as Europe/Kiev timezone
+        let notificationDate = dayjs.tz(latestNotification, "DD.MM.YYYY HH:mm", "Europe/Kiev");
 
-      if(notificationDate.isValid() && notificationDate.isAfter(now)) {
-        const diff = notificationDate.diff(now, "minutes");
+        if (!notificationDate.isValid()) {
+          console.log(`[WARN] Invalid notification date format: ${latestNotification}`);
+        } else if (notificationDate.isAfter(now)) {
+          const diff = notificationDate.diff(now, "minutes");
 
-        // Check if we're within the 7-minute cron window (runs every 7 minutes)
-        // For 30 min: check between 30 and 23 minutes (7 min window)
-        // For 10 min: check between 10 and 3 minutes (7 min window)
-        if(diff > 0 && ((diff <= 30 && diff > 23) || (diff <= 10 && diff > 3))) {
-          const minutesLeft = (diff <= 30 && diff > 23) ? 30 : 10;
-          let message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n`;
-          message += `Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")} (Europe/Kyiv)\n`;
-          await Promise.all(chatIds.map(chatId =>
-            sendTelegramMessage(telegramBotToken, chatId, message)
-          ));
+          // Check if we're within the 7-minute cron window (runs every 7 minutes)
+          // For 30 min: check between 30 and 23 minutes (7 min window)
+          // For 10 min: check between 10 and 3 minutes (7 min window)
+          if(diff > 0 && ((diff <= 30 && diff > 23) || (diff <= 10 && diff > 3))) {
+            const minutesLeft = (diff <= 30 && diff > 23) ? 30 : 10;
+            let message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n`;
+            message += `Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")} (Europe/Kyiv)\n`;
+            await Promise.all(chatIds.map(chatId =>
+              sendTelegramMessage(telegramBotToken, chatId, message)
+            ));
+          }
         }
+      } catch (e) {
+        console.error("TG notification post error:", e);
+        console.error("Latest notification value:", latestNotification);
       }
     }
   }

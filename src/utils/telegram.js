@@ -18,6 +18,7 @@ export async function sendTelegramMessage(botToken, chatId, text) {
     body: JSON.stringify({
       text,
       chat_id: chatId,
+      parse_mode: 'MarkdownV2',
     })
   });
 }

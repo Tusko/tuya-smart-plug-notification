@@ -190,8 +190,8 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
             const minutesLeft = (diff <= 30 && diff > 23) ? 30 : 10;
             let message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n`;
             message += `Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")} (Europe/Kyiv)\n`;
-            const botLink = '[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
-            message += '\n' + botLink;
+            // const botLink = '[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
+            // message += '\n' + botLink;
             await Promise.all(chatIds.map(chatId =>
               sendTelegramMessage(telegramBotToken, chatId, message)
             ));

@@ -10,9 +10,22 @@ app
   .use("/*", cors())
   .route("/", apiApp)
   .notFound((c) => c.text('🙈 Route not found', 404))
-  .get("/test-bot", async (c) => {
+  .post("/test-bot", async (c) => {
     console.log('Test bot request:', c.env);
-    let message = c.req.query('message');
+    let message;
+    try {
+      const body = await c.req.json();
+      message = body.message;
+    } catch (e) {
+      // If JSON parsing fails, try form data
+      try {
+        const formData = await c.req.parseBody();
+        message = formData.message;
+      } catch (e2) {
+        // If both fail, try query parameter
+        message = c.req.query('message');
+      }
+    }
     // Decode URL-encoded message and convert \\n to actual newlines
     if (message) {
       message = decodeURIComponent(message);
@@ -32,15 +45,33 @@ app
     }
     const botToken = c.env.TELEGRAM_BOT_TOKEN;
     const msgTxt = message || 'test bot';
-    const botLink = '[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
+    const botLink = message?.length > 0 ? '' : '[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
+
+    console.log('Bot token exists:', !!botToken);
+    console.log('Chat IDs:', chatIDs);
+    console.log('Message text:', msgTxt);
+
     try {
-      await Promise.all(chatIDs.map(chatID => sendTelegramMessage(
-        botToken,
-        chatID,
-        msgTxt + '\n' + botLink
-      )));
+      const results = await Promise.all(chatIDs.map(async (chatID) => {
+        console.log(`Sending message to chatID: ${chatID}`);
+        try {
+          const response = await sendTelegramMessage(botToken, chatID, msgTxt);
+          const responseData = await response.json();
+          console.log(`Response for chatID ${chatID}:`, responseData);
+          if (!response.ok) {
+            console.error(`Telegram API error for chatID ${chatID}:`, responseData);
+            throw new Error(`Telegram API error: ${JSON.stringify(responseData)}`);
+          }
+          return responseData;
+        } catch (error) {
+          console.error(`Error sending to chatID ${chatID}:`, error);
+          throw error;
+        }
+      }));
+      console.log('All messages sent successfully:', results);
     } catch (error) {
       console.error('Test bot error:', error);
+      console.error('Error stack:', error.stack);
       return c.text('error', 500);
     }
 

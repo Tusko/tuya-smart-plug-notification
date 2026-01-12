@@ -45,11 +45,9 @@ app
     }
     const botToken = c.env.TELEGRAM_BOT_TOKEN;
     const msgTxt = message || 'test bot';
-    const botLink = message?.length > 0 ? '' : '[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
+    const botLink = message?.length > 0 ? '' : '\n[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
 
-    console.log('Bot token exists:', !!botToken);
-    console.log('Chat IDs:', chatIDs);
-    console.log('Message text:', msgTxt);
+    msgTxt += botLink;
 
     try {
       const results = await Promise.all(chatIDs.map(async (chatID) => {

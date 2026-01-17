@@ -7,7 +7,6 @@ import timezone from "dayjs/plugin/timezone.js";
 import humanizeDuration from "humanize-duration";
 import "dayjs/locale/uk.js";
 import { getToken, getDeviceInfo } from "./utils/tuya-api.js";
-import { analyzeImageWithGemini } from "./utils/gemini.js";
 import { sendTelegramMessage, sendTelegramPhoto } from "./utils/telegram.js";
 
 dayjs.extend(relativeTime);
@@ -16,6 +15,60 @@ dayjs.extend(utc);
 dayjs.locale("uk");
 dayjs.tz.setDefault("Europe/Kiev");
 dayjs.extend(customParseFormat);
+
+/**
+ * Parse HTML text to extract schedule groups data
+ * @param {string} rawHtml - HTML text with schedule information
+ * @returns {Object} - Parsed groups data in format { groups: [...], date: "..." }
+ */
+function parseScheduleHtml(rawHtml) {
+  if (!rawHtml) {
+    return { groups: [], date: null };
+  }
+
+  // Decode HTML entities
+  const decodedHtml = rawHtml
+    .replace(/\\u003C/g, '<')
+    .replace(/\\u003E/g, '>')
+    .replace(/\\n/g, '\n');
+
+  // Extract date from first paragraph (e.g., "Графік погодинних відключень на 17.01.2026")
+  // Try to find date in format DD.MM.YYYY after "на" or "Графік"
+  const dateMatch = decodedHtml.match(/(?:Графік|на)\s+[^]*?(\d{2}\.\d{2}\.\d{4})/);
+  const date = dateMatch ? dateMatch[1] : null;
+
+  const groups = [];
+
+  // Extract group information from paragraphs
+  // Pattern: "Група X.X. Електроенергії немає з HH:MM до HH:MM, з HH:MM до HH:MM."
+  const groupPattern = /Група\s+(\d+\.\d+)\.\s+Електроенергії\s+немає\s+(.+?)\./g;
+  let match;
+
+  while ((match = groupPattern.exec(decodedHtml)) !== null) {
+    const groupId = match[1];
+    const scheduleText = match[2];
+
+    // Parse time ranges (e.g., "з 00:00 до 06:00, з 11:00 до 15:00")
+    const timeRanges = [];
+    const timePattern = /з\s+(\d{2}:\d{2})\s+до\s+(\d{2}:\d{2})/g;
+    let timeMatch;
+
+    while ((timeMatch = timePattern.exec(scheduleText)) !== null) {
+      const startTime = timeMatch[1];
+      const endTime = timeMatch[2];
+      timeRanges.push(`${startTime}-${endTime}`);
+    }
+
+    groups.push({
+      id: groupId,
+      date: date,
+      status: "Електроенергії немає",
+      schedule: timeRanges.join(', ')
+    });
+  }
+
+  return { groups, date };
+}
 
 export async function getScheduleFormattedDate(OCRResult, env) {
   let formattedDate = '';
@@ -120,8 +173,49 @@ export async function getScheduleFormattedDate(OCRResult, env) {
   return {formattedDate, durationText};
 }
 
+/**
+ * Compare two groups arrays and find changes
+ * @param {Array} oldGroups - Previous groups state
+ * @param {Array} newGroups - New groups state
+ * @returns {Object} - Object with changed groups and myGroup info
+ */
+function findGroupChanges(oldGroups, newGroups) {
+  const changes = [];
+  const oldGroupsMap = new Map(oldGroups.map(g => [g.id, g]));
+  const newGroupsMap = new Map(newGroups.map(g => [g.id, g]));
+
+  // Find changed groups
+  for (const newGroup of newGroups) {
+    const oldGroup = oldGroupsMap.get(newGroup.id);
+    if (!oldGroup || oldGroup.schedule !== newGroup.schedule || oldGroup.date !== newGroup.date) {
+      changes.push({
+        id: newGroup.id,
+        oldSchedule: oldGroup?.schedule || null,
+        newSchedule: newGroup.schedule,
+        oldDate: oldGroup?.date || null,
+        newDate: newGroup.date
+      });
+    }
+  }
+
+  // Find removed groups
+  for (const oldGroup of oldGroups) {
+    if (!newGroupsMap.has(oldGroup.id)) {
+      changes.push({
+        id: oldGroup.id,
+        oldSchedule: oldGroup.schedule,
+        newSchedule: null,
+        oldDate: oldGroup.date,
+        newDate: null
+      });
+    }
+  }
+
+  return changes;
+}
+
 async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
-  const { getLatestImage, insertImage, insertNextNotification, getLatestNotification } = db;
+  const { getLatestImage, insertImage, insertNextNotification, getLatestNotification, saveGroupsState, getLatestGroupsState } = db;
   const latestImage = await getLatestImage(env);
 
   const scheduleApiUrl = env.SCHEDULE_API_URL || "https://api.loe.lviv.ua";
@@ -135,47 +229,123 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   const data = await response.json();
 
   const menuItems = data.menuItems;
-  const { children } = menuItems.find(({ name }) => name === "Arhiv");
+  const rawHtml = menuItems[0]?.rawHtml;
 
+  if (!rawHtml) {
+    console.log('[WARN] No rawHtml found in menuItems');
+    return null;
+  }
+
+  // Parse HTML to get groups data
+  const { groups, date } = parseScheduleHtml(rawHtml);
+
+  if (!groups || groups.length === 0) {
+    console.log('[WARN] No groups found in parsed HTML');
+    return null;
+  }
+
+  // Get previous groups state
+  const previousGroupsState = await getLatestGroupsState(env);
+  const hasChanges = !previousGroupsState || JSON.stringify(previousGroupsState) !== JSON.stringify(groups);
+
+  // Find my group
+  const myGroup = groups.find(({ id }) => id === env.SCHEDULE_ID);
+
+  if (!myGroup) {
+    console.log(`[WARN] Group with id ${env.SCHEDULE_ID} not found in parsed groups`);
+  }
+
+  // Find all group changes
+  const groupChanges = previousGroupsState ? findGroupChanges(previousGroupsState, groups) : [];
+
+  // Check if image URL changed (for backward compatibility)
+  const { children } = menuItems.find(({ name }) => name === "Arhiv") || {};
   const imageUrl = children?.length
     ? children[children.length - 1]?.imageUrl
-    : menuItems[0].imageUrl;
-
-  const lastImage = `${scheduleApiUrl}/${imageUrl}`;
+    : menuItems[0]?.imageUrl;
 
   const isExistsImage = latestImage && latestImage.image === imageUrl;
 
-  if (!isExistsImage) {
+  // If we have changes or new image, process and send notifications
+  if (hasChanges || !isExistsImage) {
     try {
-      const { data: OCRResult } = await analyzeImageWithGemini({
-        apiKey: env.GEMINI_API_KEY,
-        imageUrl: lastImage,
-      });
+      // Get next notification for my group
+      let myGroupMessage = '';
+      if (myGroup) {
+        const OCRResult = { groups: [myGroup] };
+        const { formattedDate, durationText } = await getScheduleFormattedDate(OCRResult, env);
 
-      const {formattedDate, durationText} = await getScheduleFormattedDate(OCRResult, env);
+        if (formattedDate) {
+          await insertNextNotification(formattedDate, env);
+          myGroupMessage = `Наступне вимкнення електроенергії (група ${env.SCHEDULE_ID}): ${formattedDate}${durationText}`;
+        } else {
+          myGroupMessage = `Наступне вимкнення електроенергії (група ${env.SCHEDULE_ID}) не визначено`;
+        }
+      }
 
-      await insertNextNotification(formattedDate, env);
+      // Build message with changes
+      let messageParts = [];
 
-      const caption = formattedDate ?
-        "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + "): " + formattedDate + durationText :
-        "Наступне вимкнення електроенергії (група " + env.SCHEDULE_ID + ") не визначено";
+      // Always show my group notification if available
+      const myGroupChanged = groupChanges.find(c => c.id === env.SCHEDULE_ID);
+      if (myGroupMessage) {
+        messageParts.push(`📢 ${myGroupMessage}`);
 
-      await Promise.all(chatIds.map(chatId =>
-        sendTelegramPhoto(telegramBotToken, chatId, lastImage, caption)
-      ));
+        // If my group changed, show details
+        if (myGroupChanged && myGroupChanged.oldSchedule !== myGroupChanged.newSchedule) {
+          messageParts.push(`\n🔄 Зміна для групи ${env.SCHEDULE_ID}:`);
+          if (myGroupChanged.oldSchedule) {
+            messageParts.push(`   Було: ${myGroupChanged.oldSchedule}`);
+          }
+          messageParts.push(`   Стало: ${myGroupChanged.newSchedule || 'немає відключень'}`);
+        }
+      }
+
+      // Add changes for other groups
+      const otherGroupChanges = groupChanges.filter(c => c.id !== env.SCHEDULE_ID);
+      if (otherGroupChanges.length > 0) {
+        messageParts.push(`\n📋 Зміни в інших групах:`);
+        for (const change of otherGroupChanges) {
+          messageParts.push(`\n🔄 Група ${change.id}:`);
+          if (change.oldSchedule) {
+            messageParts.push(`   Було: ${change.oldSchedule}`);
+          }
+          messageParts.push(`   Стало: ${change.newSchedule || 'немає відключень'}`);
+        }
+      }
+
+      const caption = messageParts.length > 0 ? messageParts.join('\n') : (myGroupMessage || 'Немає даних про графік відключень');
+
+      // Send image if URL changed
+      if (!isExistsImage && imageUrl) {
+        const lastImage = `${scheduleApiUrl}/${imageUrl}`;
+        await Promise.all(chatIds.map(chatId =>
+          sendTelegramPhoto(telegramBotToken, chatId, lastImage, caption)
+        ));
+        await insertImage(imageUrl, env);
+      } else if (hasChanges && messageParts.length > 0) {
+        // Send text message if data changed (even if image didn't change)
+        await Promise.all(chatIds.map(chatId =>
+          sendTelegramMessage(telegramBotToken, chatId, caption)
+        ));
+      } else if (!isExistsImage && messageParts.length > 0) {
+        // Send text message if we have message but no image URL
+        await Promise.all(chatIds.map(chatId =>
+          sendTelegramMessage(telegramBotToken, chatId, caption)
+        ));
+      }
+
+      // Save new groups state
+      await saveGroupsState(groups, env);
     } catch (e) {
-      console.error("TG image post error:", e);
+      console.error("TG notification post error:", e);
     }
-
-    await insertImage(imageUrl, env);
   } else {
+    // No changes, just check for reminders
     const latestNotification = await getLatestNotification(env);
-    // send 30 and 10 min before notification
     if(latestNotification) {
       try {
         const now = dayjs().tz("Europe/Kiev");
-        // Try parsing with time first, then without time
-        // Parse as Europe/Kiev timezone
         let notificationDate = dayjs.tz(latestNotification, "DD.MM.YYYY HH:mm", "Europe/Kiev");
 
         if (!notificationDate.isValid()) {
@@ -204,6 +374,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
     }
   }
 
+  const lastImage = imageUrl ? `${scheduleApiUrl}/${imageUrl}` : null;
   return lastImage;
 }
 

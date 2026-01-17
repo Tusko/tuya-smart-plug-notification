@@ -188,3 +188,31 @@ export function deleteStatusById(id, env = process.env) {
   const db = new FirestoreREST(env);
   return db.deleteDocument('statuses', id);
 }
+
+// Save groups state
+export async function saveGroupsState(groupsData, env = process.env) {
+  const db = new FirestoreREST(env);
+  const documentId = shortID().uuid();
+
+  return db.createDocument('groups_state', documentId, {
+    groupsData: JSON.stringify(groupsData),
+    datetime: new Date(),
+  });
+}
+
+// Get latest groups state
+export async function getLatestGroupsState(env = process.env) {
+  const db = new FirestoreREST(env);
+  const results = await db.queryDocuments('groups_state', 'datetime', 'DESCENDING', 1);
+
+  if (results.length > 0 && results[0].groupsData) {
+    try {
+      return JSON.parse(results[0].groupsData);
+    } catch (e) {
+      console.error("Error parsing groups state:", e);
+      return null;
+    }
+  }
+
+  return null;
+}

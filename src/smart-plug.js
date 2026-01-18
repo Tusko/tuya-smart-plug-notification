@@ -174,6 +174,48 @@ export async function getScheduleFormattedDate(OCRResult, env) {
 }
 
 /**
+ * Filter schedule to keep only future time ranges
+ * @param {string} schedule - Schedule string like "00:00-06:00, 11:00-15:00"
+ * @param {string} date - Date string like "17.01.2026"
+ * @returns {string} - Filtered schedule with only future ranges
+ */
+function filterFutureSchedules(schedule, date) {
+  if (!schedule || !schedule.trim() || !date) {
+    return schedule || '';
+  }
+
+  const timeRanges = schedule.split(',').map(range => range.trim()).filter(range => range.length > 0);
+  const now = dayjs().tz("Europe/Kiev");
+  const futureRanges = [];
+
+  for (const timeRange of timeRanges) {
+    const timeParts = timeRange.split('-').map(part => part.trim());
+    if (timeParts.length === 2 && timeParts[0] && timeParts[1]) {
+      const startTime = timeParts[0];
+      const endTime = timeParts[1];
+
+      // Parse date as if it's in Europe/Kiev timezone
+      const startDateTime = dayjs.tz(`${date} ${startTime}`, "DD.MM.YYYY HH:mm", "Europe/Kiev");
+      let endDateTime = dayjs.tz(`${date} ${endTime}`, "DD.MM.YYYY HH:mm", "Europe/Kiev");
+
+      // Handle case where end time is next day
+      if (endDateTime.isBefore(startDateTime)) {
+        endDateTime = endDateTime.add(1, 'day');
+      }
+
+      if (startDateTime.isValid() && endDateTime.isValid()) {
+        // Keep only ranges that haven't ended yet
+        if (endDateTime.isAfter(now)) {
+          futureRanges.push(timeRange);
+        }
+      }
+    }
+  }
+
+  return futureRanges.join(', ');
+}
+
+/**
  * Compare two groups arrays and find changes
  * @param {Array} oldGroups - Previous groups state
  * @param {Array} newGroups - New groups state
@@ -187,27 +229,36 @@ function findGroupChanges(oldGroups, newGroups) {
   // Find changed groups
   for (const newGroup of newGroups) {
     const oldGroup = oldGroupsMap.get(newGroup.id);
-    if (!oldGroup || oldGroup.schedule !== newGroup.schedule || oldGroup.date !== newGroup.date) {
+
+    // Filter to keep only future schedules for comparison
+    const oldFutureSchedule = oldGroup ? filterFutureSchedules(oldGroup.schedule, oldGroup.date) : '';
+    const newFutureSchedule = filterFutureSchedules(newGroup.schedule, newGroup.date);
+
+    if (!oldGroup || oldFutureSchedule !== newFutureSchedule || oldGroup.date !== newGroup.date) {
       changes.push({
         id: newGroup.id,
-        oldSchedule: oldGroup?.schedule || null,
-        newSchedule: newGroup.schedule,
+        oldSchedule: oldFutureSchedule || null,
+        newSchedule: newFutureSchedule || null,
         oldDate: oldGroup?.date || null,
         newDate: newGroup.date
       });
     }
   }
 
-  // Find removed groups
+  // Find removed groups (only if they had future schedules)
   for (const oldGroup of oldGroups) {
     if (!newGroupsMap.has(oldGroup.id)) {
-      changes.push({
-        id: oldGroup.id,
-        oldSchedule: oldGroup.schedule,
-        newSchedule: null,
-        oldDate: oldGroup.date,
-        newDate: null
-      });
+      const oldFutureSchedule = filterFutureSchedules(oldGroup.schedule, oldGroup.date);
+      // Only report removal if there were future schedules
+      if (oldFutureSchedule) {
+        changes.push({
+          id: oldGroup.id,
+          oldSchedule: oldFutureSchedule,
+          newSchedule: null,
+          oldDate: oldGroup.date,
+          newDate: null
+        });
+      }
     }
   }
 
@@ -308,9 +359,9 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         for (const change of otherGroupChanges) {
           messageParts.push(`\n🔄 Група ${change.id}:`);
           if (change.oldSchedule) {
-            messageParts.push(`   Було: ${change.oldSchedule}`);
+            messageParts.push(`     Було: ${change.oldSchedule}`);
           }
-          messageParts.push(`   Стало: ${change.newSchedule || 'немає відключень'}`);
+          messageParts.push(`     Стало: ${change.newSchedule || 'немає відключень'}`);
         }
       }
 

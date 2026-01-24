@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import smartPlug from "./smart-plug.js";
 import { analyzeImageWithGemini } from "./utils/gemini.js";
 import { getScheduleFormattedDate } from "./smart-plug.js";
+import { createLogger } from "./utils/logger.js";
 
 const app = new Hono();
 
@@ -41,6 +42,9 @@ app.get("/", async (c) => {
     }
 
     html += noRender ? "" : "</body></html>";
+
+    const logger = createLogger(c.env);
+    logger.info("HTML response:", {html});
 
     return c.html(html);
   } catch (err) {
@@ -143,7 +147,8 @@ app.post("/analyze-gemini", async (c) => {
     });
 
   } catch (err) {
-    console.error("Error in /analyze-gemini:", err);
+    const logger = createLogger(c.env);
+    logger.error("Error in /analyze-gemini:", err);
     return c.json({
       success: false,
       error: err.message,

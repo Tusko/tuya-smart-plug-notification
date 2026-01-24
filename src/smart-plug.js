@@ -8,6 +8,7 @@ import humanizeDuration from "humanize-duration";
 import "dayjs/locale/uk.js";
 import { getToken, getDeviceInfo } from "./utils/tuya-api.js";
 import { sendTelegramMessage, sendTelegramPhoto } from "./utils/telegram.js";
+import { createLogger } from "./utils/logger.js";
 
 dayjs.extend(relativeTime);
 dayjs.extend(timezone);
@@ -71,6 +72,7 @@ function parseScheduleHtml(rawHtml) {
 }
 
 export async function getScheduleFormattedDate(OCRResult, env) {
+  const logger = createLogger(env);
   let formattedDate = '';
   let durationText = '';
 
@@ -78,11 +80,11 @@ export async function getScheduleFormattedDate(OCRResult, env) {
     const myGroup = OCRResult.groups.find(({ id }) => id === env.SCHEDULE_ID);
 
     if (!myGroup) {
-      console.log(`[WARN] Group with id ${env.SCHEDULE_ID} not found in OCR results`);
+      logger.warn(`Group with id ${env.SCHEDULE_ID} not found in OCR results`);
     } else if (!myGroup.date) {
-      console.log(`[WARN] Group ${env.SCHEDULE_ID} has no date`);
+      logger.warn(`Group ${env.SCHEDULE_ID} has no date`);
     } else if (!myGroup.schedule || !myGroup.schedule.trim()) {
-      console.log(`[WARN] Group ${env.SCHEDULE_ID} has no schedule`);
+      logger.warn(`Group ${env.SCHEDULE_ID} has no schedule`);
     } else {
       const date = myGroup.date;
       const schedule = myGroup.schedule.trim();
@@ -118,10 +120,10 @@ export async function getScheduleFormattedDate(OCRResult, env) {
               break; // Found the next upcoming range
             }
           } else {
-            console.log(`[WARN] Invalid datetime parsing: date=${date}, startTime=${startTime}, endTime=${endTime}, startValid=${startDateTime.isValid()}, endValid=${actualEndDateTime.isValid()}`);
+            logger.warn(`Invalid datetime parsing: date=${date}, startTime=${startTime}, endTime=${endTime}, startValid=${startDateTime.isValid()}, endValid=${actualEndDateTime.isValid()}`);
           }
         } else {
-          console.log(`[WARN] Invalid time range format: ${timeRange}`);
+          logger.warn(`Invalid time range format: ${timeRange}`);
         }
       }
 
@@ -162,12 +164,12 @@ export async function getScheduleFormattedDate(OCRResult, env) {
 
         formattedDate = `${date} ${nextTimeRange.startTime}`;
       } else {
-        console.log(`[WARN] No valid time range found for group ${env.SCHEDULE_ID}, date: ${date}, schedule: ${schedule}, now: ${now.format("DD.MM.YYYY HH:mm")}`);
+        logger.warn(`No valid time range found for group ${env.SCHEDULE_ID}, date: ${date}, schedule: ${schedule}, now: ${now.format("DD.MM.YYYY HH:mm")}`);
       }
     }
 
   } else {
-    console.log('[WARN] OCRResult.groups is empty or undefined');
+    logger.warn('OCRResult.groups is empty or undefined');
   }
 
   return {formattedDate, durationText};
@@ -266,6 +268,7 @@ function findGroupChanges(oldGroups, newGroups) {
 }
 
 async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
+  const logger = createLogger(env);
   const { getLatestImage, insertImage, insertNextNotification, getLatestNotification, saveGroupsState, getLatestGroupsState } = db;
   const latestImage = await getLatestImage(env);
 
@@ -279,19 +282,25 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   });
   const data = await response.json();
 
+  logger.info("Schedule API response:", data);
+
   const menuItems = data.menuItems;
   const rawHtml = menuItems[0]?.rawHtml;
 
+  logger.info("Raw HTML:", rawHtml);
+
   if (!rawHtml) {
-    console.log('[WARN] No rawHtml found in menuItems');
+    logger.warn('No rawHtml found in menuItems');
     return null;
   }
 
   // Parse HTML to get groups data
   const { groups, date } = parseScheduleHtml(rawHtml);
 
+  logger.info("Groups:", groups);
+
   if (!groups || groups.length === 0) {
-    console.log('[WARN] No groups found in parsed HTML');
+    logger.warn('No groups found in parsed HTML');
     return null;
   }
 
@@ -303,7 +312,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   const myGroup = groups.find(({ id }) => id === env.SCHEDULE_ID);
 
   if (!myGroup) {
-    console.log(`[WARN] Group with id ${env.SCHEDULE_ID} not found in parsed groups`);
+    logger.warn(`Group with id ${env.SCHEDULE_ID} not found in parsed groups`);
   }
 
   // Find all group changes
@@ -370,12 +379,19 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
       // Send image if URL changed
       if (!isExistsImage && imageUrl) {
         const lastImage = `${scheduleApiUrl}/${imageUrl}`;
+
+        logger.info("Last image:", lastImage);
+
         await Promise.all(chatIds.map(chatId =>
           sendTelegramPhoto(telegramBotToken, chatId, lastImage, caption)
         ));
+
         await insertImage(imageUrl, env);
       } else if (hasChanges && messageParts.length > 0) {
         // Send text message if data changed (even if image didn't change)
+
+        logger.info("Sending text message:", caption);
+
         await Promise.all(chatIds.map(chatId =>
           sendTelegramMessage(telegramBotToken, chatId, caption)
         ));
@@ -389,38 +405,66 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
       // Save new groups state
       await saveGroupsState(groups, env);
     } catch (e) {
-      console.error("TG notification post error:", e);
+      logger.error("TG notification post error:", e);
     }
   } else {
-    // No changes, just check for reminders
     const latestNotification = await getLatestNotification(env);
+
+    logger.info("No changes, just check for reminders", latestNotification);
+
     if(latestNotification) {
       try {
-        const now = dayjs().tz("Europe/Kiev");
-        let notificationDate = dayjs.tz(latestNotification, "DD.MM.YYYY HH:mm", "Europe/Kiev");
+        // Check if there are actually future schedules for my group today
+        // If no future schedules exist, don't send reminders
+        let shouldSendReminder = true;
+        const myGroup = groups.find(({ id }) => id === env.SCHEDULE_ID);
+        if (myGroup) {
+          const OCRResult = { groups: [myGroup] };
+          const { formattedDate } = await getScheduleFormattedDate(OCRResult, env);
 
-        if (!notificationDate.isValid()) {
-          console.log(`[WARN] Invalid notification date format: ${latestNotification}`);
-        } else if (notificationDate.isAfter(now)) {
-          const diff = notificationDate.diff(now, "minutes");
+          logger.info("Formatted date for group", env.SCHEDULE_ID, ":", formattedDate);
 
-          // Check if we're within the 7-minute cron window (runs every 7 minutes)
-          // For 30 min: check between 30 and 23 minutes (7 min window)
-          // For 10 min: check between 10 and 3 minutes (7 min window)
-          if(diff > 0 && ((diff <= 30 && diff > 23) || (diff <= 10 && diff > 3))) {
-            const minutesLeft = (diff <= 30 && diff > 23) ? 30 : 10;
-            let message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n`;
-            message += `Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")} (Europe/Kyiv)\n`;
-            const botLink = '\n[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
-            message += '\n' + botLink;
-            await Promise.all(chatIds.map(chatId =>
-              sendTelegramMessage(telegramBotToken, chatId, message)
-            ));
+          // Only send reminders if there's a valid future schedule
+          if (!formattedDate) {
+            logger.info(`No future schedules for group ${env.SCHEDULE_ID}, skipping reminders`);
+            shouldSendReminder = false;
+          }
+        } else {
+          logger.info(`Group ${env.SCHEDULE_ID} not found in current schedule, skipping reminders`, groups);
+          shouldSendReminder = false;
+        }
+
+        // Only send reminder if there are future schedules
+        if (shouldSendReminder) {
+          const now = dayjs().tz("Europe/Kiev");
+          let notificationDate = dayjs.tz(latestNotification, "DD.MM.YYYY HH:mm", "Europe/Kiev");
+
+          if (!notificationDate.isValid()) {
+            logger.warn(`Invalid notification date format: ${latestNotification}`);
+          } else if (notificationDate.isAfter(now)) {
+            logger.info("Notification date is after now", notificationDate, now);
+
+            const diff = notificationDate.diff(now, "minutes");
+
+            // Check if we're within the 7-minute cron window (runs every 7 minutes)
+            // For 30 min: check between 30 and 23 minutes (7 min window)
+            // For 10 min: check between 10 and 3 minutes (7 min window)
+            if(diff > 0 && ((diff <= 30 && diff > 23) || (diff <= 10 && diff > 3))) {
+              logger.info("Sending reminder", diff);
+              const minutesLeft = (diff <= 30 && diff > 23) ? 30 : 10;
+              let message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n`;
+              message += `Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")} (Europe/Kyiv)\n`;
+              const botLink = '\n[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
+              message += '\n' + botLink;
+              await Promise.all(chatIds.map(chatId =>
+                sendTelegramMessage(telegramBotToken, chatId, message)
+              ));
+            }
           }
         }
       } catch (e) {
-        console.error("TG notification post error:", e);
-        console.error("Latest notification value:", latestNotification);
+        logger.error("TG notification post error:", e);
+        logger.error("Latest notification value:", latestNotification);
       }
     }
   }
@@ -500,7 +544,8 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
       }
     }
   } catch (e) {
-    console.error(e);
+    const logger = createLogger(env);
+    logger.error("Error in smartPlug function:", e);
   } finally {
     if (notify) {
       if (tgMsg) {

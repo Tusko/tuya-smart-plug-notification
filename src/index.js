@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import apiApp from "./api.js";
 import smartPlug from "./smart-plug.js";
 import { sendTelegramMessage } from "./utils/telegram.js";
+import { createLogger } from "./utils/logger.js";
 
 const app = new Hono();
 
@@ -11,7 +12,8 @@ app
   .route("/", apiApp)
   .notFound((c) => c.text('🙈 Route not found', 404))
   .post("/test-bot", async (c) => {
-    console.log('Test bot request:', c.env);
+    const logger = createLogger(c.env);
+    logger.info('Test bot request received');
     let message;
     try {
       const body = await c.req.json();
@@ -51,25 +53,25 @@ app
 
     try {
       const results = await Promise.all(chatIDs.map(async (chatID) => {
-        console.log(`Sending message to chatID: ${chatID}`);
+        logger.info(`Sending message to chatID: ${chatID}`);
         try {
           const response = await sendTelegramMessage(botToken, chatID, msgTxt);
           const responseData = await response.json();
-          console.log(`Response for chatID ${chatID}:`, responseData);
+          logger.info(`Response for chatID ${chatID}:`, responseData);
           if (!response.ok) {
-            console.error(`Telegram API error for chatID ${chatID}:`, responseData);
+            logger.error(`Telegram API error for chatID ${chatID}:`, responseData);
             throw new Error(`Telegram API error: ${JSON.stringify(responseData)}`);
           }
           return responseData;
         } catch (error) {
-          console.error(`Error sending to chatID ${chatID}:`, error);
+          logger.error(`Error sending to chatID ${chatID}:`, error);
           throw error;
         }
       }));
-      console.log('All messages sent successfully:', results);
+      logger.info('All messages sent successfully', { resultsCount: results.length });
     } catch (error) {
-      console.error('Test bot error:', error);
-      console.error('Error stack:', error.stack);
+      logger.error('Test bot error:', error);
+      logger.error('Error stack:', error.stack);
       return c.text('error', 500);
     }
 
@@ -84,11 +86,12 @@ export default {
   fetch: app.fetch,
   // Scheduled handler for cron triggers
   async scheduled(event, env, ctx) {
-    console.log('Cron triggered at:', new Date().toISOString());
+    const logger = createLogger(env);
+    logger.info('Cron triggered', { timestamp: new Date().toISOString() });
     try {
       ctx.waitUntil(smartPlug(true, env));
     } catch (error) {
-      console.error('Cron error:', error);
+      logger.error('Cron error:', error);
     }
   }
 };

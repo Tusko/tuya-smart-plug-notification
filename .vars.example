@@ -30,3 +30,9 @@ TELEGRAM_BOT_CHAT_ID=your-telegram-chat-id
 # Google Gemini API (optional - for advanced image analysis)
 GEMINI_API_KEY=your-gemini-api-key
 SCHEDULE_ID="1.1"
+
+# Better Stack Logging
+BETTERSTACK_HOST=s1693273.eu-nbg-2.betterstackdata.com
+BETTERSTACK_KEY=your-betterstack-key
+# Optional: Service name for logs
+SERVICE_NAME=smart-plug

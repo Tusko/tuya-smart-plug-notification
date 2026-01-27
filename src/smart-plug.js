@@ -6,9 +6,9 @@ import utc from "dayjs/plugin/utc.js";
 import timezone from "dayjs/plugin/timezone.js";
 import humanizeDuration from "humanize-duration";
 import "dayjs/locale/uk.js";
-import {getToken, getDeviceInfo} from "./utils/tuya-api.js";
-import {sendTelegramMessage, sendTelegramPhoto} from "./utils/telegram.js";
-import {createLogger} from "./utils/logger.js";
+import { getToken, getDeviceInfo } from "./utils/tuya-api.js";
+import { sendTelegramMessage, sendTelegramPhoto } from "./utils/telegram.js";
+import { createLogger } from "./utils/logger.js";
 
 dayjs.extend(relativeTime);
 dayjs.extend(timezone);
@@ -24,7 +24,7 @@ dayjs.extend(customParseFormat);
  */
 function parseScheduleHtml(rawHtml) {
   if (!rawHtml) {
-    return {groups: [], date: null};
+    return { groups: [], date: null };
   }
 
   // Decode HTML entities
@@ -71,7 +71,7 @@ function parseScheduleHtml(rawHtml) {
     });
   }
 
-  return {groups, date};
+  return { groups, date };
 }
 
 export async function getScheduleFormattedDate(OCRResult, env) {
@@ -80,7 +80,7 @@ export async function getScheduleFormattedDate(OCRResult, env) {
   let durationText = "";
 
   if (OCRResult.groups && OCRResult.groups.length > 0) {
-    const myGroup = OCRResult.groups.find(({id}) => id === env.SCHEDULE_ID);
+    const myGroup = OCRResult.groups.find(({ id }) => id === env.SCHEDULE_ID);
 
     if (!myGroup) {
       logger.warn(`Group with id ${env.SCHEDULE_ID} not found in OCR results`);
@@ -176,7 +176,7 @@ export async function getScheduleFormattedDate(OCRResult, env) {
             endDateTime.isValid() &&
             startDateTime.isAfter(now)
           ) {
-            nextTimeRange = {startTime, endTime, startDateTime, endDateTime};
+            nextTimeRange = { startTime, endTime, startDateTime, endDateTime };
           }
         }
       }
@@ -209,7 +209,7 @@ export async function getScheduleFormattedDate(OCRResult, env) {
     logger.warn("OCRResult.groups is empty or undefined");
   }
 
-  return {formattedDate, durationText};
+  return { formattedDate, durationText };
 }
 
 /**
@@ -352,7 +352,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   // logger.info("Schedule API response:", data);
 
   const menuItems = data.menuItems;
-  const tomorrowItem = menuItems?.find(({name}) => name === "Tomorrow");
+  const tomorrowItem = menuItems?.find(({ name }) => name === "Tomorrow");
 
   // Today (default): use first menu item
   const rawHtml = menuItems[0]?.rawHtml;
@@ -365,7 +365,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   }
 
   // Parse HTML to get groups data (Today)
-  const {groups, date} = parseScheduleHtml(rawHtml);
+  const { groups, date } = parseScheduleHtml(rawHtml);
 
   logger.info("Groups:", groups);
 
@@ -381,7 +381,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
     JSON.stringify(previousGroupsState) !== JSON.stringify(groups);
 
   // Find my group
-  const myGroup = groups.find(({id}) => id === env.SCHEDULE_ID);
+  const myGroup = groups.find(({ id }) => id === env.SCHEDULE_ID);
 
   if (!myGroup) {
     logger.warn(`Group with id ${env.SCHEDULE_ID} not found in parsed groups`);
@@ -393,7 +393,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
     : [];
 
   // Check if image URL changed (for backward compatibility)
-  const {children} = menuItems.find(({name}) => name === "Arhiv") || {};
+  const { children } = menuItems.find(({ name }) => name === "Arhiv") || {};
   const imageUrl = children?.length
     ? children[children.length - 1]?.imageUrl
     : menuItems[0]?.imageUrl;
@@ -408,12 +408,12 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
     tomorrowItem.imageUrl
   ) {
     try {
-      const {groups: tomorrowGroups, date: tomorrowDate} = parseScheduleHtml(
+      const { groups: tomorrowGroups, date: tomorrowDate } = parseScheduleHtml(
         tomorrowItem.rawHtml,
       );
       if (tomorrowGroups?.length) {
         const tomorrowMyGroup = tomorrowGroups.find(
-          ({id}) => id === env.SCHEDULE_ID,
+          ({ id }) => id === env.SCHEDULE_ID,
         );
         let tomorrowCaption = "📢 Завтра: графік погодинних відключень";
         if (tomorrowDate) {
@@ -421,8 +421,8 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         }
         tomorrowCaption += "\n\n";
         if (tomorrowMyGroup) {
-          const ocrResult = {groups: [tomorrowMyGroup]};
-          const {formattedDate, durationText} = await getScheduleFormattedDate(
+          const ocrResult = { groups: [tomorrowMyGroup] };
+          const { formattedDate, durationText } = await getScheduleFormattedDate(
             ocrResult,
             env,
           );
@@ -461,8 +461,8 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
       // Get next notification for my group
       let myGroupMessage = "";
       if (myGroup) {
-        const OCRResult = {groups: [myGroup]};
-        const {formattedDate, durationText} = await getScheduleFormattedDate(
+        const OCRResult = { groups: [myGroup] };
+        const { formattedDate, durationText } = await getScheduleFormattedDate(
           OCRResult,
           env,
         );
@@ -567,10 +567,10 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         // Check if there are actually future schedules for my group today
         // If no future schedules exist, don't send reminders
         let shouldSendReminder = true;
-        const myGroup = groups.find(({id}) => id === env.SCHEDULE_ID);
+        const myGroup = groups.find(({ id }) => id === env.SCHEDULE_ID);
         if (myGroup) {
-          const OCRResult = {groups: [myGroup]};
-          const {formattedDate} = await getScheduleFormattedDate(
+          const OCRResult = { groups: [myGroup] };
+          const { formattedDate } = await getScheduleFormattedDate(
             OCRResult,
             env,
           );
@@ -630,7 +630,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
               const minutesLeft = diff <= 30 && diff > 23 ? 30 : 10;
               let message = `⏰ Нагадування: Вимкнення електроенергії через ${minutesLeft} хвилин (група ${env.SCHEDULE_ID})\n`;
               message += `Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")} (Europe/Kyiv)\n`;
-              const botLink = "\n[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)";
+              const botLink = `\n[СвітлоЄ Бот](${env.TELEGRAM_CHANNEL_LINK || 'https://t.me/+hcOVky6W75cwOTNi'})`;
               message += "\n" + botLink;
               await Promise.all(
                 chatIds.map((chatId) =>
@@ -671,7 +671,7 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
   await getToken(env);
   let notify = "";
 
-  const {getLatestStatus, insertStatus, getAllStatuses} = db;
+  const { getLatestStatus, insertStatus, getAllStatuses } = db;
 
   const latestStatus = await getLatestStatus(env);
 

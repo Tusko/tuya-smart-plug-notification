@@ -26,6 +26,7 @@ SCHEDULE_API_URL=https://api.loe.lviv.ua
 # Telegram Notifications (for status change alerts)
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 TELEGRAM_BOT_CHAT_ID=your-telegram-chat-id
+TELEGRAM_CHANNEL_LINK=your-telegram-channel-link
 
 # Google Gemini API (optional - for advanced image analysis)
 GEMINI_API_KEY=your-gemini-api-key

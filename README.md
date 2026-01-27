@@ -113,6 +113,7 @@ SCHEDULE_API_URL=https://api.loe.lviv.ua
 # Telegram Bot Configuration
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 TELEGRAM_BOT_CHAT_ID=123456789
+TELEGRAM_CHANNEL_LINK=your_telegram_channel_link
 
 # Google Gemini API (optional - for advanced image analysis)
 GEMINI_API_KEY=your_gemini_api_key
@@ -142,6 +143,7 @@ wrangler secret put TUYA_TIME_FORMAT
 wrangler secret put SCHEDULE_API_URL
 wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put TELEGRAM_BOT_CHAT_ID
+wrangler secret put TELEGRAM_CHANNEL_LINK
 wrangler secret put GEMINI_API_KEY  # Optional - for Gemini image analysis
 wrangler secret put NODE_ENV
 ```
@@ -171,6 +173,7 @@ wrangler secret put TUYA_ACCESS_KEY -e production
 | `SCHEDULE_API_URL` | Electricity schedule API base URL | ❌ | `https://api.loe.lviv.ua` |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token from @BotFather | ✅ | - |
 | `TELEGRAM_BOT_CHAT_ID` | Telegram chat ID for notifications | ✅ | - |
+| `TELEGRAM_CHANNEL_LINK` | Telegram bot/channel invite link | ❌ | - |
 | `GEMINI_API_KEY` | Google Gemini API key for advanced image analysis | ❌ | - |
 | `NODE_ENV` | Environment mode (`development` or `production`) | ❌ | `development` |
 

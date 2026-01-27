@@ -36,6 +36,6 @@
     "short-uuid": "^5.2.0"
   },
   "devDependencies": {
-    "wrangler": "^4.45.0"
+    "wrangler": "^4.59.1"
   }
 }

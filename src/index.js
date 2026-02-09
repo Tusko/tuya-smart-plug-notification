@@ -47,7 +47,7 @@ app
     }
     const botToken = c.env.TELEGRAM_BOT_TOKEN;
     let msgTxt = message || 'test bot';
-    const botLink = message?.length > 0 ? '' : '\n[СвітлоЄ Бот](https://t.me/+hcOVky6W75cwOTNi)';
+    const botLink = message?.length > 0 ? '' : `\n[СвітлоЄ Бот](${c.env.TELEGRAM_CHANNEL_LINK || 'https://t.me/+hcOVky6W75cwOTNi'})`;
 
     msgTxt += botLink;
 

@@ -31,7 +31,7 @@ export const config = getConfig(process.env);
 async function httpClient(url, options = {}, host) {
   const fullUrl = `${host}${url}`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased to 10 seconds
 
   try {
     const response = await fetch(fullUrl, {
@@ -42,6 +42,9 @@ async function httpClient(url, options = {}, host) {
     return response;
   } catch (error) {
     clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      throw new Error(`Request to ${fullUrl} timed out after 10 seconds`);
+    }
     throw error;
   }
 }
@@ -75,10 +78,14 @@ export async function getToken(env = process.env) {
     client_id: cfg.accessKey,
     sign: await encryptStr(signStr, cfg.secretKey),
   };
-  const response = await httpClient("/v1.0/token?grant_type=1", {
-    method: 'GET',
-    headers,
-  }, cfg.host);
+  const response = await httpClient(
+    "/v1.0/token?grant_type=1",
+    {
+      method: "GET",
+      headers,
+    },
+    cfg.host,
+  );
   const login = await response.json();
   if (!login || !login.success) {
     throw Error(`Authorization Failed: ${login.msg}`);
@@ -100,7 +107,7 @@ async function getRequestSign(
   headers = {},
   query = {},
   body = {},
-  cfg
+  cfg,
 ) {
   const t = Date.now().toString();
   const [uri, pathQuery] = path.split("?");
@@ -108,8 +115,8 @@ async function getRequestSign(
   // Parse query string manually to avoid qs dependency
   const parseQuery = (str) => {
     if (!str) return {};
-    return str.split('&').reduce((acc, pair) => {
-      const [key, value] = pair.split('=');
+    return str.split("&").reduce((acc, pair) => {
+      const [key, value] = pair.split("=");
       acc[key] = value;
       return acc;
     }, {});
@@ -123,19 +130,19 @@ async function getRequestSign(
 
   const stringifyQuery = (obj) => {
     return Object.keys(obj)
-      .map(key => `${key}=${obj[key]}`)
-      .join('&');
+      .map((key) => `${key}=${obj[key]}`)
+      .join("&");
   };
 
   const querystring = stringifyQuery(sortedQuery);
   const url = querystring ? `${uri}?${querystring}` : uri;
 
   // For GET requests or empty body, hash empty string instead of "{}"
-  const bodyStr = method === 'GET' || Object.keys(body).length === 0 ? '' : JSON.stringify(body);
-  const contentHash = crypto
-    .createHash("sha256")
-    .update(bodyStr)
-    .digest("hex");
+  const bodyStr =
+    method === "GET" || Object.keys(body).length === 0
+      ? ""
+      : JSON.stringify(body);
+  const contentHash = crypto.createHash("sha256").update(bodyStr).digest("hex");
   const stringToSign = [method, contentHash, "", url].join("\n");
   const signStr = cfg.accessKey + token + t + stringToSign;
   return {
@@ -157,10 +164,14 @@ export async function getDeviceInfo(deviceId, env = process.env) {
   const url = `/v1.1/iot-03/devices/${deviceId}`;
   const reqHeaders = await getRequestSign(url, method, {}, {}, {}, cfg);
 
-  const response = await httpClient(reqHeaders.path, {
-    method,
-    headers: reqHeaders,
-  }, cfg.host);
+  const response = await httpClient(
+    reqHeaders.path,
+    {
+      method,
+      headers: reqHeaders,
+    },
+    cfg.host,
+  );
   const data = await response.json();
 
   if (!data || !data.success) {
@@ -169,4 +180,3 @@ export async function getDeviceInfo(deviceId, env = process.env) {
 
   return data;
 }
-

@@ -341,12 +341,33 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
 
   const scheduleApiUrl = env.SCHEDULE_API_URL || "https://api.loe.lviv.ua";
 
-  const response = await fetch(`${scheduleApiUrl}/api/menus/9`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  // Add timeout to prevent hanging requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+  let response;
+  try {
+    response = await fetch(`${scheduleApiUrl}/api/menus/9`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      logger.error("Schedule API request timed out");
+      throw new Error("Schedule API request timed out after 10 seconds");
+    }
+    throw error;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Schedule API returned ${response.status}: ${response.statusText}`);
+  }
+
   const data = await response.json();
 
   // logger.info("Schedule API response:", data);
@@ -673,9 +694,25 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
 
   const {getLatestStatus, insertStatus, getAllStatuses} = db;
 
-  const latestStatus = await getLatestStatus(env);
+  // Wrap getLatestStatus in error handling so failures don't prevent device check
+  let latestStatus = null;
+  try {
+    latestStatus = await getLatestStatus(env);
+  } catch (e) {
+    const logger = createLogger(env);
+    logger.error("Error getting latest status:", e);
+    // Continue execution with latestStatus = null
+  }
 
-  const lastGraphics = await scrapeAndSendImage(botID, chatIDs, env);
+  // Wrap scrapeAndSendImage in try-catch so failures don't prevent device status check
+  let lastGraphics = null;
+  try {
+    lastGraphics = await scrapeAndSendImage(botID, chatIDs, env);
+  } catch (e) {
+    const logger = createLogger(env);
+    logger.error("Error in scrapeAndSendImage:", e);
+    // Continue execution even if image scraping fails
+  }
 
   try {
     const deviceInfo = await getDeviceInfo(deviceId, env);
@@ -724,6 +761,10 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
   } catch (e) {
     const logger = createLogger(env);
     logger.error("Error in smartPlug function:", e);
+    // Re-throw AbortError to be handled by caller
+    if (e.name === 'AbortError' || e.message?.includes('timed out')) {
+      throw e;
+    }
   } finally {
     if (notify) {
       if (tgMsg) {
@@ -739,10 +780,14 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
           : "unknown");
     }
 
+    // Only fetch all statuses if not in production to avoid unnecessary CPU usage
+    const isProd = Boolean(env.NODE_ENV === 'production');
+    const allStatuses = isProd ? [] : await getAllStatuses(env);
+
     return {
       notify,
       latestStatus,
-      allStatuses: await getAllStatuses(env),
+      allStatuses,
       lastGraphics,
     };
   }

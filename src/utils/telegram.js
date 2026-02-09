@@ -44,14 +44,20 @@ export async function sendTelegramMessage(botToken, chatId, text) {
   console.log('sendTelegramMessage: Sending to', url);
   console.log('sendTelegramMessage: Payload', { ...payload, text: text.substring(0, 50) + '...' });
 
+  // Add timeout to prevent hanging requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     console.log('sendTelegramMessage: Response status', response.status);
 
@@ -63,6 +69,11 @@ export async function sendTelegramMessage(botToken, chatId, text) {
 
     return response;
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error('sendTelegramMessage: Request timed out');
+      throw new Error('Telegram API request timed out after 15 seconds');
+    }
     console.error('sendTelegramMessage: Fetch error', error);
     throw error;
   }
@@ -77,16 +88,37 @@ export async function sendTelegramMessage(botToken, chatId, text) {
  * @returns {Promise<Response>} - Fetch response
  */
 export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption = '') {
-  return fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      photo: photoUrl,
-      caption,
-      chat_id: chatId,
-    })
-  });
+  // Add timeout to prevent hanging requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for photo uploads
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        photo: photoUrl,
+        caption,
+        chat_id: chatId,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Telegram API returned ${response.status}: ${errorText}`);
+    }
+
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Telegram photo upload timed out after 20 seconds');
+    }
+    throw error;
+  }
 }
 

@@ -89,9 +89,19 @@ export default {
     const logger = createLogger(env);
     logger.info('Cron triggered', { timestamp: new Date().toISOString() });
     try {
-      ctx.waitUntil(smartPlug(true, env));
+      // Use waitUntil to allow the function to complete even if cron handler finishes
+      ctx.waitUntil(
+        smartPlug(true, env).catch((error) => {
+          logger.error('Error in smartPlug function:', error);
+          // Log specific error details
+          if (error.name === 'AbortError' || error.message?.includes('timed out')) {
+            logger.error('Request timeout detected:', error.message);
+          }
+          // Don't re-throw to prevent cron from failing
+        })
+      );
     } catch (error) {
-      logger.error('Cron error:', error);
+      logger.error('Cron handler error:', error);
     }
   }
 };

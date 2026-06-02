@@ -17,6 +17,51 @@ dayjs.locale("uk");
 dayjs.tz.setDefault("Europe/Kiev");
 dayjs.extend(customParseFormat);
 
+const DEFAULT_MACMINI_HEALTH_URL = "https://mm4.frontend.im/health";
+
+/**
+ * Secondary source-of-truth: Mac mini on same power + WiFi as the smart plug.
+ * @param {object} env
+ * @returns {Promise<boolean>} true only when health responds with status "ok"
+ */
+async function checkMacminiHealth(env) {
+  const logger = createLogger(env);
+  const url = env.MACMINI_HEALTH_URL || DEFAULT_MACMINI_HEALTH_URL;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      logger.info(
+        `Mac mini health check failed: HTTP ${response.status} from ${url}`,
+      );
+      return false;
+    }
+
+    const data = await response.json();
+    const ok = data?.status === "ok";
+    if (!ok) {
+      logger.info(`Mac mini health not ok: ${JSON.stringify(data)}`);
+    }
+    return ok;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      logger.info(`Mac mini health check timed out: ${url}`);
+    } else {
+      logger.info(`Mac mini health check error: ${error.message}`);
+    }
+    return false;
+  }
+}
+
 /**
  * Parse HTML text to extract schedule groups data
  * @param {string} rawHtml - HTML text with schedule information
@@ -716,7 +761,18 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
 
   try {
     const deviceInfo = await getDeviceInfo(deviceId, env);
-    const deviceStatus = deviceInfo.result.online;
+    let deviceStatus = deviceInfo.result.online;
+
+    // Secondary source-of-truth: Tuya can report offline on its own WiFi/network
+    // hiccup. The Mac mini shares the same power + WiFi, so if it is healthy,
+    // electricity is on. Only stay offline if BOTH are down.
+    if (!deviceStatus) {
+      const macminiOk = await checkMacminiHealth(env);
+      if (macminiOk) {
+        deviceStatus = true;
+      }
+    }
+
     const deviceStatusStr = deviceStatus ? "online" : "offline";
     const dt = dayjs();
     const nowStr = dt.format(timeFormat);

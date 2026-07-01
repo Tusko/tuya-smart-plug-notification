@@ -3,6 +3,9 @@ import smartPlug from "./smart-plug.js";
 import { analyzeImageWithGemini } from "./utils/gemini.js";
 import { getScheduleFormattedDate } from "./smart-plug.js";
 import { createLogger } from "./utils/logger.js";
+import { fetchScheduleMenu, parseScheduleHtml } from "./smart-plug.js";
+import { generateIcs } from "./utils/ics.js";
+import dayjs from "dayjs";
 
 const app = new Hono();
 
@@ -155,6 +158,51 @@ app.post("/analyze-gemini", async (c) => {
       timestamp: new Date().toISOString()
     }, 500);
   }
+});
+
+/**
+ * GET /calendar/:file  (e.g. /calendar/1.1.ics)
+ * Live, subscribable ICS feed of a single group's Today+Tomorrow outages.
+ */
+app.get("/calendar/:file", async (c) => {
+  const file = c.req.param("file");
+  const groupId = file.replace(/\.ics$/, "");
+
+  // Only accept well-formed group ids like "1.1" / "5.2"; anything else is a
+  // bad path, not an empty schedule.
+  if (!/^\d+\.\d+$/.test(groupId)) {
+    return c.text("🙈 Not found", 404);
+  }
+
+  let menuItems;
+  try {
+    menuItems = await fetchScheduleMenu(c.env);
+  } catch (err) {
+    const logger = createLogger(c.env);
+    logger.error("Calendar: schedule fetch failed:", err);
+    return c.text("Schedule API unavailable", 502);
+  }
+
+  // Collect the requested group from Today and Tomorrow (skip missing days).
+  const dayItems = ["Today", "Tomorrow"]
+    .map((name) => menuItems?.find((m) => m.name === name))
+    .filter((item) => item && item.rawHtml);
+
+  const groups = [];
+  for (const item of dayItems) {
+    const { groups: dayGroups } = parseScheduleHtml(item.rawHtml);
+    const myGroup = dayGroups.find((g) => g.id === groupId);
+    if (myGroup) {
+      groups.push(myGroup);
+    }
+  }
+
+  const ics = generateIcs({ groupId, groups, now: dayjs() });
+
+  return c.body(ics, 200, {
+    "Content-Type": "text/calendar; charset=utf-8",
+    "Content-Disposition": `inline; filename="group-${groupId}.ics"`,
+  });
 });
 
 export default app;

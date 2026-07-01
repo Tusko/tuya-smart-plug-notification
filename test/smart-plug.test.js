@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fetchScheduleMenu, parseScheduleHtml, buildMyGroupMessage } from "../src/smart-plug.js";
+import app from "../src/api.js";
+import dayjs from "dayjs";
 
 const SAMPLE_MENUS_RESPONSE = {
   "@context": "/api/contexts/Menu",
@@ -135,4 +137,63 @@ test("buildMyGroupMessage: outage group with no determinable upcoming time", () 
     scheduleId: "1.1",
   });
   assert.equal(msg, "Наступне вимкнення електроенергії (група 1.1) не визначено");
+});
+
+// Menu payload whose Today group 1.1 has an outage and group 2.1 has power.
+const CALENDAR_MENUS_RESPONSE = [
+  {
+    id: 9,
+    type: "photo-grafic",
+    menuItems: [
+      {
+        name: "Today",
+        imageUrl: "/media/today.png",
+        rawHtml:
+          "<div><p><b>Графік погодинних відключень на 01.07.2026</b></p>" +
+          "<p>Група 1.1. Електроенергії немає з 17:00 до 19:30.</p>" +
+          "<p>Група 2.1. Електроенергія є.</p></div>",
+      },
+      { name: "Tomorrow", imageUrl: "", rawHtml: "" },
+    ],
+  },
+];
+
+test("GET /calendar/:groupId.ics returns a text/calendar outage event", async () => {
+  mockFetchOnce(CALENDAR_MENUS_RESPONSE);
+
+  const res = await app.request("/calendar/1.1.ics", {}, { SCHEDULE_API_URL: "https://api.loe.lviv.ua" });
+
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type"), /text\/calendar/);
+  const body = await res.text();
+  assert.ok(body.startsWith("BEGIN:VCALENDAR"));
+  assert.ok(body.includes("SUMMARY:Група 1.1 Відключення світла"));
+  assert.ok(body.includes("DTSTART:20260701T140000Z"));
+});
+
+test("GET /calendar/:groupId.ics returns an empty calendar for an unknown group", async () => {
+  mockFetchOnce(CALENDAR_MENUS_RESPONSE);
+
+  const res = await app.request("/calendar/9.9.ics", {}, { SCHEDULE_API_URL: "https://api.loe.lviv.ua" });
+
+  assert.equal(res.status, 200);
+  const body = await res.text();
+  assert.ok(body.includes("BEGIN:VCALENDAR"));
+  assert.ok(!body.includes("BEGIN:VEVENT"));
+});
+
+test("GET /calendar/:file returns 404 for a malformed group id", async () => {
+  mockFetchOnce(CALENDAR_MENUS_RESPONSE);
+
+  const res = await app.request("/calendar/notagroup.ics", {}, { SCHEDULE_API_URL: "https://api.loe.lviv.ua" });
+
+  assert.equal(res.status, 404);
+});
+
+test("GET /calendar/:groupId.ics returns 502 when the schedule API fails", async () => {
+  mockFetchOnce({}, false); // non-ok response -> fetchScheduleMenu throws
+
+  const res = await app.request("/calendar/1.1.ics", {}, { SCHEDULE_API_URL: "https://api.loe.lviv.ua" });
+
+  assert.equal(res.status, 502);
 });

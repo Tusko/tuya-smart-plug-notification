@@ -521,15 +521,19 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         }
         tomorrowCaption += "\n\n";
         if (tomorrowMyGroup) {
-          const ocrResult = { groups: [tomorrowMyGroup] };
-          const { formattedDate, durationText } = await getScheduleFormattedDate(
-            ocrResult,
-            env,
-          );
-          if (formattedDate) {
-            tomorrowCaption += `Група ${env.SCHEDULE_ID}: ${formattedDate}${durationText}`;
+          if (tomorrowMyGroup.status === "power") {
+            tomorrowCaption += `Група ${env.SCHEDULE_ID}: відключень немає`;
           } else {
-            tomorrowCaption += `Група ${env.SCHEDULE_ID}: відключень не визначено`;
+            const ocrResult = { groups: [tomorrowMyGroup] };
+            const { formattedDate, durationText } = await getScheduleFormattedDate(
+              ocrResult,
+              env,
+            );
+            if (formattedDate) {
+              tomorrowCaption += `Група ${env.SCHEDULE_ID}: ${formattedDate}${durationText}`;
+            } else {
+              tomorrowCaption += `Група ${env.SCHEDULE_ID}: відключень не визначено`;
+            }
           }
         } else {
           tomorrowCaption += `Група ${env.SCHEDULE_ID}: не знайдено в графіку`;
@@ -681,7 +685,12 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         // If no future schedules exist, don't send reminders
         let shouldSendReminder = true;
         const myGroup = groups.find(({ id }) => id === env.SCHEDULE_ID);
-        if (myGroup) {
+        if (myGroup?.status === "power") {
+          logger.info(
+            `Group ${env.SCHEDULE_ID} has no outage today, skipping reminders`,
+          );
+          shouldSendReminder = false;
+        } else if (myGroup) {
           const OCRResult = { groups: [myGroup] };
           const { formattedDate } = await getScheduleFormattedDate(
             OCRResult,

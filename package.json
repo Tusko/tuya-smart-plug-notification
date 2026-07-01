@@ -15,7 +15,7 @@
     "tail": "wrangler tail",
     "clean": "rm -rf node_modules .wrangler dist",
     "update": "yarn upgrade-interactive",
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "repository": {
     "type": "git",

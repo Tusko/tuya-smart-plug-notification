@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fetchScheduleMenu, parseScheduleHtml } from "../src/smart-plug.js";
+import { fetchScheduleMenu, parseScheduleHtml, buildMyGroupMessage } from "../src/smart-plug.js";
 
 const SAMPLE_MENUS_RESPONSE = {
   "@context": "/api/contexts/Menu",
@@ -102,4 +102,37 @@ test("parseScheduleHtml captures both power and outage groups", () => {
 test("parseScheduleHtml returns empty groups for missing rawHtml", () => {
   assert.deepEqual(parseScheduleHtml(null), { groups: [], date: null });
   assert.deepEqual(parseScheduleHtml(""), { groups: [], date: null });
+});
+
+test("buildMyGroupMessage: power group with no outage", () => {
+  const msg = buildMyGroupMessage({
+    myGroup: { id: "2.1", status: "power", schedule: "" },
+    formattedDate: "",
+    durationText: "",
+    scheduleId: "2.1",
+  });
+  assert.equal(msg, "Група 2.1: відключень немає");
+});
+
+test("buildMyGroupMessage: outage group with a known upcoming time", () => {
+  const msg = buildMyGroupMessage({
+    myGroup: { id: "1.1", status: "outage", schedule: "17:00-19:30" },
+    formattedDate: "01.07.2026 17:00",
+    durationText: " (тривалість: 2 год 30 хв)",
+    scheduleId: "1.1",
+  });
+  assert.equal(
+    msg,
+    "Наступне вимкнення електроенергії (група 1.1): 01.07.2026 17:00 (тривалість: 2 год 30 хв)",
+  );
+});
+
+test("buildMyGroupMessage: outage group with no determinable upcoming time", () => {
+  const msg = buildMyGroupMessage({
+    myGroup: { id: "1.1", status: "outage", schedule: "" },
+    formattedDate: "",
+    durationText: "",
+    scheduleId: "1.1",
+  });
+  assert.equal(msg, "Наступне вимкнення електроенергії (група 1.1) не визначено");
 });

@@ -427,6 +427,16 @@ export async function fetchScheduleMenu(env) {
   return menu.menuItems;
 }
 
+export function buildMyGroupMessage({ myGroup, formattedDate, durationText, scheduleId }) {
+  if (myGroup.status === "power") {
+    return `Група ${scheduleId}: відключень немає`;
+  }
+  if (formattedDate) {
+    return `Наступне вимкнення електроенергії (група ${scheduleId}): ${formattedDate}${durationText}`;
+  }
+  return `Наступне вимкнення електроенергії (група ${scheduleId}) не визначено`;
+}
+
 async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   const logger = createLogger(env);
   const {
@@ -551,17 +561,30 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
       // Get next notification for my group
       let myGroupMessage = "";
       if (myGroup) {
-        const OCRResult = { groups: [myGroup] };
-        const { formattedDate, durationText } = await getScheduleFormattedDate(
-          OCRResult,
-          env,
-        );
-
-        if (formattedDate) {
-          await insertNextNotification(formattedDate, env);
-          myGroupMessage = `Наступне вимкнення електроенергії (група ${env.SCHEDULE_ID}): ${formattedDate}${durationText}`;
+        if (myGroup.status === "power") {
+          myGroupMessage = buildMyGroupMessage({
+            myGroup,
+            formattedDate: "",
+            durationText: "",
+            scheduleId: env.SCHEDULE_ID,
+          });
         } else {
-          myGroupMessage = `Наступне вимкнення електроенергії (група ${env.SCHEDULE_ID}) не визначено`;
+          const OCRResult = { groups: [myGroup] };
+          const { formattedDate, durationText } = await getScheduleFormattedDate(
+            OCRResult,
+            env,
+          );
+
+          if (formattedDate) {
+            await insertNextNotification(formattedDate, env);
+          }
+
+          myGroupMessage = buildMyGroupMessage({
+            myGroup,
+            formattedDate,
+            durationText,
+            scheduleId: env.SCHEDULE_ID,
+          });
         }
       }
 

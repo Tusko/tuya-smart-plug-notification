@@ -372,6 +372,49 @@ function findGroupChanges(oldGroups, newGroups) {
   return changes;
 }
 
+export async function fetchScheduleMenu(env) {
+  const logger = createLogger(env);
+  const scheduleApiUrl = env.SCHEDULE_API_URL || "https://api.loe.lviv.ua";
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let response;
+  try {
+    response = await fetch(
+      `${scheduleApiUrl}/api/menus?page=1&type=photo-grafic`,
+      {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      },
+    );
+    clearTimeout(timeoutId);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      throw new Error("Schedule API request timed out after 10 seconds");
+    }
+    throw error;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Schedule API returned ${response.status}: ${response.statusText}`,
+    );
+  }
+
+  const data = await response.json();
+  const menu = data["hydra:member"]?.find((m) => m.type === "photo-grafic");
+
+  if (!menu) {
+    logger.warn("No photo-grafic menu found in schedule API response");
+    throw new Error("No photo-grafic menu found in schedule API response");
+  }
+
+  return menu.menuItems;
+}
+
 async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   const logger = createLogger(env);
   const {
@@ -386,38 +429,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
 
   const scheduleApiUrl = env.SCHEDULE_API_URL || "https://api.loe.lviv.ua";
 
-  // Add timeout to prevent hanging requests
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-  let response;
-  try {
-    response = await fetch(`${scheduleApiUrl}/api/menus/9`, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      logger.error("Schedule API request timed out");
-      throw new Error("Schedule API request timed out after 10 seconds");
-    }
-    throw error;
-  }
-
-  if (!response.ok) {
-    throw new Error(`Schedule API returned ${response.status}: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-
-  // logger.info("Schedule API response:", data);
-
-  const menuItems = data.menuItems;
+  const menuItems = await fetchScheduleMenu(env);
   const tomorrowItem = menuItems?.find(({ name }) => name === "Tomorrow");
 
   // Today (default): use first menu item

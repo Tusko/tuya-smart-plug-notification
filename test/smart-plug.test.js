@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fetchScheduleMenu } from "../src/smart-plug.js";
+import { fetchScheduleMenu, parseScheduleHtml } from "../src/smart-plug.js";
 
 const SAMPLE_MENUS_RESPONSE = {
   "@context": "/api/contexts/Menu",
@@ -66,4 +66,40 @@ test("fetchScheduleMenu throws on non-ok response", async () => {
     () => fetchScheduleMenu({ SCHEDULE_API_URL: "https://api.loe.lviv.ua" }),
     /Schedule API returned 500/,
   );
+});
+
+const SAMPLE_RAW_HTML =
+  "<div><p><b>Графік погодинних відключень на 01.07.2026</b></p>\n" +
+  "<p><b>Інформація станом на 19:05 30.06.2026</b></p>\n" +
+  "<p>Група 1.1. Електроенергії немає з 17:00 до 19:30.</p>\n" +
+  "<p>Група 1.2. Електроенергії немає з 19:30 до 22:00.</p>\n" +
+  "<p>Група 2.1. Електроенергія є.</p>\n" +
+  "<p>Група 2.2. Електроенергія є.</p>\n" +
+  "<p>Група 5.1. Електроенергії немає з 00:00 до 06:00, з 11:00 до 15:00.</p>\n" +
+  "</div>";
+
+test("parseScheduleHtml captures both power and outage groups", () => {
+  const { groups, date } = parseScheduleHtml(SAMPLE_RAW_HTML);
+
+  assert.equal(date, "01.07.2026");
+  assert.equal(groups.length, 5);
+
+  const g11 = groups.find((g) => g.id === "1.1");
+  assert.deepEqual(g11, { id: "1.1", date: "01.07.2026", status: "outage", schedule: "17:00-19:30" });
+
+  const g21 = groups.find((g) => g.id === "2.1");
+  assert.deepEqual(g21, { id: "2.1", date: "01.07.2026", status: "power", schedule: "" });
+
+  const g51 = groups.find((g) => g.id === "5.1");
+  assert.deepEqual(g51, {
+    id: "5.1",
+    date: "01.07.2026",
+    status: "outage",
+    schedule: "00:00-06:00, 11:00-15:00",
+  });
+});
+
+test("parseScheduleHtml returns empty groups for missing rawHtml", () => {
+  assert.deepEqual(parseScheduleHtml(null), { groups: [], date: null });
+  assert.deepEqual(parseScheduleHtml(""), { groups: [], date: null });
 });

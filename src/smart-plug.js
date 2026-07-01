@@ -67,7 +67,7 @@ async function checkMacminiHealth(env) {
  * @param {string} rawHtml - HTML text with schedule information
  * @returns {Object} - Parsed groups data in format { groups: [...], date: "..." }
  */
-function parseScheduleHtml(rawHtml) {
+export function parseScheduleHtml(rawHtml) {
   if (!rawHtml) {
     return { groups: [], date: null };
   }
@@ -87,15 +87,23 @@ function parseScheduleHtml(rawHtml) {
 
   const groups = [];
 
-  // Extract group information from paragraphs
-  // Pattern: "Група X.X. Електроенергії немає з HH:MM до HH:MM, з HH:MM до HH:MM."
+  // Every group sentence is either "Група X.X. Електроенергія є." (power,
+  // no outage) or "Група X.X. Електроенергії немає з HH:MM до HH:MM(, з HH:MM
+  // до HH:MM)*." Both branches must be captured — a group with power all day
+  // otherwise silently disappears from `groups` and reads downstream as
+  // "group not found in schedule".
   const groupPattern =
-    /Група\s+(\d+\.\d+)\.\s+Електроенергії\s+немає\s+(.+?)\./g;
+    /Група\s+(\d+\.\d+)\.\s+(?:Електроенергія\s+є|Електроенергії\s+немає\s+(.+?))\./g;
   let match;
 
   while ((match = groupPattern.exec(decodedHtml)) !== null) {
     const groupId = match[1];
     const scheduleText = match[2];
+
+    if (!scheduleText) {
+      groups.push({ id: groupId, date, status: "power", schedule: "" });
+      continue;
+    }
 
     // Parse time ranges (e.g., "з 00:00 до 06:00, з 11:00 до 15:00")
     const timeRanges = [];
@@ -110,8 +118,8 @@ function parseScheduleHtml(rawHtml) {
 
     groups.push({
       id: groupId,
-      date: date,
-      status: "Електроенергії немає",
+      date,
+      status: "outage",
       schedule: timeRanges.join(", "),
     });
   }

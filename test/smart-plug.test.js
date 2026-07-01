@@ -40,6 +40,16 @@ test("fetchScheduleMenu returns menuItems from the photo-grafic menu", async () 
   assert.equal(menuItems[1].name, "Tomorrow");
 });
 
+test("fetchScheduleMenu returns menuItems when the API responds with a bare array (observed in production)", async () => {
+  const BARE_ARRAY_RESPONSE = SAMPLE_MENUS_RESPONSE["hydra:member"];
+  mockFetchOnce(BARE_ARRAY_RESPONSE);
+
+  const menuItems = await fetchScheduleMenu({ SCHEDULE_API_URL: "https://api.loe.lviv.ua" });
+
+  assert.equal(menuItems.length, 2);
+  assert.equal(menuItems[0].name, "Today");
+});
+
 test("fetchScheduleMenu throws when no photo-grafic menu is present", async () => {
   mockFetchOnce({ "hydra:member": [{ type: "some-other-type", menuItems: [] }] });
 

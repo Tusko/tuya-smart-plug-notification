@@ -405,7 +405,11 @@ export async function fetchScheduleMenu(env) {
   }
 
   const data = await response.json();
-  const menu = data["hydra:member"]?.find((m) => m.type === "photo-grafic");
+  // The API returns either a bare array of menus or a Hydra collection
+  // object (`{ "hydra:member": [...] }`) depending on server-side
+  // conditions observed in production — accept either shape.
+  const menus = Array.isArray(data) ? data : data["hydra:member"];
+  const menu = menus?.find((m) => m.type === "photo-grafic");
 
   if (!menu) {
     logger.warn("No photo-grafic menu found in schedule API response");

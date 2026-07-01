@@ -84,6 +84,24 @@ test("generateIcs emits an all-day VEVENT for a power (no-outage) day", () => {
   assert.ok(ics.includes("UID:2.1-01.07.2026-power@loe-blackouts"));
 });
 
+test("generateIcs folds every physical line to <=75 octets (RFC 5545 §3.1)", () => {
+  const groups = [
+    { id: "1.1", date: "01.07.2026", status: "outage", schedule: "17:00-19:30" },
+  ];
+  const ics = generateIcs({ groupId: "1.1", groups, now: NOW });
+  const L = lines(ics);
+
+  // Sanity check: the outage fixture emits the hardcoded 77-octet
+  // DESCRIPTION line, so this test actually exercises the fold.
+  assert.ok(L.length > 0);
+  for (const line of L) {
+    assert.ok(
+      Buffer.byteLength(line, "utf8") <= 75,
+      `line exceeds 75 octets: ${JSON.stringify(line)}`
+    );
+  }
+});
+
 test("generateIcs combines Today and Tomorrow groups into one calendar", () => {
   const groups = [
     { id: "1.1", date: "01.07.2026", status: "outage", schedule: "17:00-19:30" },

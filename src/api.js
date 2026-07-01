@@ -184,20 +184,30 @@ app.get("/calendar/:file", async (c) => {
   }
 
   // Collect the requested group from Today and Tomorrow (skip missing days).
-  const dayItems = ["Today", "Tomorrow"]
-    .map((name) => menuItems?.find((m) => m.name === name))
-    .filter((item) => item && item.rawHtml);
+  // Parsing consumes live upstream HTML, so guard it the same way as the
+  // fetch above: a shape change upstream should degrade to a clean 502, not
+  // an unstyled 500.
+  let ics;
+  try {
+    const dayItems = ["Today", "Tomorrow"]
+      .map((name) => menuItems?.find((m) => m.name === name))
+      .filter((item) => item && item.rawHtml);
 
-  const groups = [];
-  for (const item of dayItems) {
-    const { groups: dayGroups } = parseScheduleHtml(item.rawHtml);
-    const myGroup = dayGroups.find((g) => g.id === groupId);
-    if (myGroup) {
-      groups.push(myGroup);
+    const groups = [];
+    for (const item of dayItems) {
+      const { groups: dayGroups } = parseScheduleHtml(item.rawHtml);
+      const myGroup = dayGroups.find((g) => g.id === groupId);
+      if (myGroup) {
+        groups.push(myGroup);
+      }
     }
-  }
 
-  const ics = generateIcs({ groupId, groups, now: dayjs() });
+    ics = generateIcs({ groupId, groups, now: dayjs() });
+  } catch (err) {
+    const logger = createLogger(c.env);
+    logger.error("Calendar: schedule parse/generate failed:", err);
+    return c.text("Schedule data unavailable", 502);
+  }
 
   return c.body(ics, 200, {
     "Content-Type": "text/calendar; charset=utf-8",

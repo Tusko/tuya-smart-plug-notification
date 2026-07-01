@@ -26,6 +26,36 @@ function escapeText(text) {
 }
 
 /**
+ * Fold a content line to <=75 octets per RFC 5545 §3.1. Continuation lines
+ * begin with a single space. Never splits a multi-byte UTF-8 character.
+ * @param {string} line
+ * @returns {string} the (possibly multi-line, CRLF-joined) folded line
+ */
+function foldLine(line) {
+  const bytes = Buffer.from(line, "utf8");
+  if (bytes.length <= 75) {
+    return line;
+  }
+  const chunks = [];
+  let start = 0;
+  // First line holds up to 75 octets; continuation lines up to 74 (they carry
+  // a leading space that counts toward the 75-octet limit).
+  let limit = 75;
+  while (start < bytes.length) {
+    let end = Math.min(start + limit, bytes.length);
+    // Don't split in the middle of a multi-byte UTF-8 sequence: back up while
+    // the byte at `end` is a continuation byte (0b10xxxxxx).
+    while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) {
+      end--;
+    }
+    chunks.push(bytes.slice(start, end).toString("utf8"));
+    start = end;
+    limit = 74;
+  }
+  return chunks.join("\r\n ");
+}
+
+/**
  * Format a Kyiv-local wall-clock datetime as a UTC ICS timestamp (…Z).
  * @param {string} date - "DD.MM.YYYY"
  * @param {string} time - "HH:MM"
@@ -80,7 +110,7 @@ function outageEventLines(groupId, date, range) {
     "TRANSP:TRANSPARENT",
     "BEGIN:VALARM",
     "ACTION:DISPLAY",
-    "DESCRIPTION:Відключення світла скоро почнеться",
+    `DESCRIPTION:${escapeText("Відключення світла скоро почнеться")}`,
     "TRIGGER:-PT30M",
     "END:VALARM",
     "END:VEVENT",
@@ -165,5 +195,5 @@ export function generateIcs({ groupId, groups, now }) {
     "END:VCALENDAR",
   ];
 
-  return lines.join("\r\n");
+  return lines.map(foldLine).join("\r\n");
 }

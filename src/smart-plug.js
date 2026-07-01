@@ -67,7 +67,7 @@ async function checkMacminiHealth(env) {
  * @param {string} rawHtml - HTML text with schedule information
  * @returns {Object} - Parsed groups data in format { groups: [...], date: "..." }
  */
-function parseScheduleHtml(rawHtml) {
+export function parseScheduleHtml(rawHtml) {
   if (!rawHtml) {
     return { groups: [], date: null };
   }
@@ -87,15 +87,23 @@ function parseScheduleHtml(rawHtml) {
 
   const groups = [];
 
-  // Extract group information from paragraphs
-  // Pattern: "Група X.X. Електроенергії немає з HH:MM до HH:MM, з HH:MM до HH:MM."
+  // Every group sentence is either "Група X.X. Електроенергія є." (power,
+  // no outage) or "Група X.X. Електроенергії немає з HH:MM до HH:MM(, з HH:MM
+  // до HH:MM)*." Both branches must be captured — a group with power all day
+  // otherwise silently disappears from `groups` and reads downstream as
+  // "group not found in schedule".
   const groupPattern =
-    /Група\s+(\d+\.\d+)\.\s+Електроенергії\s+немає\s+(.+?)\./g;
+    /Група\s+(\d+\.\d+)\.\s+(?:Електроенергія\s+є|Електроенергії\s+немає\s+(.+?))\./g;
   let match;
 
   while ((match = groupPattern.exec(decodedHtml)) !== null) {
     const groupId = match[1];
     const scheduleText = match[2];
+
+    if (!scheduleText) {
+      groups.push({ id: groupId, date, status: "power", schedule: "" });
+      continue;
+    }
 
     // Parse time ranges (e.g., "з 00:00 до 06:00, з 11:00 до 15:00")
     const timeRanges = [];
@@ -110,8 +118,8 @@ function parseScheduleHtml(rawHtml) {
 
     groups.push({
       id: groupId,
-      date: date,
-      status: "Електроенергії немає",
+      date,
+      status: "outage",
       schedule: timeRanges.join(", "),
     });
   }
@@ -372,6 +380,63 @@ function findGroupChanges(oldGroups, newGroups) {
   return changes;
 }
 
+export async function fetchScheduleMenu(env) {
+  const logger = createLogger(env);
+  const scheduleApiUrl = env.SCHEDULE_API_URL || "https://api.loe.lviv.ua";
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let response;
+  try {
+    response = await fetch(
+      `${scheduleApiUrl}/api/menus?page=1&type=photo-grafic`,
+      {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      },
+    );
+    clearTimeout(timeoutId);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      throw new Error("Schedule API request timed out after 10 seconds");
+    }
+    throw error;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Schedule API returned ${response.status}: ${response.statusText}`,
+    );
+  }
+
+  const data = await response.json();
+  // The API returns either a bare array of menus or a Hydra collection
+  // object (`{ "hydra:member": [...] }`) depending on server-side
+  // conditions observed in production — accept either shape.
+  const menus = Array.isArray(data) ? data : data["hydra:member"];
+  const menu = menus?.find((m) => m.type === "photo-grafic");
+
+  if (!menu) {
+    logger.warn("No photo-grafic menu found in schedule API response");
+    throw new Error("No photo-grafic menu found in schedule API response");
+  }
+
+  return menu.menuItems;
+}
+
+export function buildMyGroupMessage({ myGroup, formattedDate, durationText, scheduleId }) {
+  if (myGroup.status === "power") {
+    return `Група ${scheduleId}: відключень немає`;
+  }
+  if (formattedDate) {
+    return `Наступне вимкнення електроенергії (група ${scheduleId}): ${formattedDate}${durationText}`;
+  }
+  return `Наступне вимкнення електроенергії (група ${scheduleId}) не визначено`;
+}
+
 async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
   const logger = createLogger(env);
   const {
@@ -386,38 +451,7 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
 
   const scheduleApiUrl = env.SCHEDULE_API_URL || "https://api.loe.lviv.ua";
 
-  // Add timeout to prevent hanging requests
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-  let response;
-  try {
-    response = await fetch(`${scheduleApiUrl}/api/menus/9`, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      logger.error("Schedule API request timed out");
-      throw new Error("Schedule API request timed out after 10 seconds");
-    }
-    throw error;
-  }
-
-  if (!response.ok) {
-    throw new Error(`Schedule API returned ${response.status}: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-
-  // logger.info("Schedule API response:", data);
-
-  const menuItems = data.menuItems;
+  const menuItems = await fetchScheduleMenu(env);
   const tomorrowItem = menuItems?.find(({ name }) => name === "Tomorrow");
 
   // Today (default): use first menu item
@@ -487,15 +521,19 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         }
         tomorrowCaption += "\n\n";
         if (tomorrowMyGroup) {
-          const ocrResult = { groups: [tomorrowMyGroup] };
-          const { formattedDate, durationText } = await getScheduleFormattedDate(
-            ocrResult,
-            env,
-          );
-          if (formattedDate) {
-            tomorrowCaption += `Група ${env.SCHEDULE_ID}: ${formattedDate}${durationText}`;
+          if (tomorrowMyGroup.status === "power") {
+            tomorrowCaption += `Група ${env.SCHEDULE_ID}: відключень немає`;
           } else {
-            tomorrowCaption += `Група ${env.SCHEDULE_ID}: відключень не визначено`;
+            const ocrResult = { groups: [tomorrowMyGroup] };
+            const { formattedDate, durationText } = await getScheduleFormattedDate(
+              ocrResult,
+              env,
+            );
+            if (formattedDate) {
+              tomorrowCaption += `Група ${env.SCHEDULE_ID}: ${formattedDate}${durationText}`;
+            } else {
+              tomorrowCaption += `Група ${env.SCHEDULE_ID}: відключень не визначено`;
+            }
           }
         } else {
           tomorrowCaption += `Група ${env.SCHEDULE_ID}: не знайдено в графіку`;
@@ -527,17 +565,30 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
       // Get next notification for my group
       let myGroupMessage = "";
       if (myGroup) {
-        const OCRResult = { groups: [myGroup] };
-        const { formattedDate, durationText } = await getScheduleFormattedDate(
-          OCRResult,
-          env,
-        );
-
-        if (formattedDate) {
-          await insertNextNotification(formattedDate, env);
-          myGroupMessage = `Наступне вимкнення електроенергії (група ${env.SCHEDULE_ID}): ${formattedDate}${durationText}`;
+        if (myGroup.status === "power") {
+          myGroupMessage = buildMyGroupMessage({
+            myGroup,
+            formattedDate: "",
+            durationText: "",
+            scheduleId: env.SCHEDULE_ID,
+          });
         } else {
-          myGroupMessage = `Наступне вимкнення електроенергії (група ${env.SCHEDULE_ID}) не визначено`;
+          const OCRResult = { groups: [myGroup] };
+          const { formattedDate, durationText } = await getScheduleFormattedDate(
+            OCRResult,
+            env,
+          );
+
+          if (formattedDate) {
+            await insertNextNotification(formattedDate, env);
+          }
+
+          myGroupMessage = buildMyGroupMessage({
+            myGroup,
+            formattedDate,
+            durationText,
+            scheduleId: env.SCHEDULE_ID,
+          });
         }
       }
 
@@ -634,7 +685,12 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         // If no future schedules exist, don't send reminders
         let shouldSendReminder = true;
         const myGroup = groups.find(({ id }) => id === env.SCHEDULE_ID);
-        if (myGroup) {
+        if (myGroup?.status === "power") {
+          logger.info(
+            `Group ${env.SCHEDULE_ID} has no outage today, skipping reminders`,
+          );
+          shouldSendReminder = false;
+        } else if (myGroup) {
           const OCRResult = { groups: [myGroup] };
           const { formattedDate } = await getScheduleFormattedDate(
             OCRResult,

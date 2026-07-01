@@ -14,7 +14,8 @@
     "preview": "wrangler dev --remote",
     "tail": "wrangler tail",
     "clean": "rm -rf node_modules .wrangler dist",
-    "update": "yarn upgrade-interactive"
+    "update": "yarn upgrade-interactive",
+    "test": "node --test"
   },
   "repository": {
     "type": "git",

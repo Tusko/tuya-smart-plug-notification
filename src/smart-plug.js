@@ -17,57 +17,12 @@ dayjs.locale("uk");
 dayjs.tz.setDefault("Europe/Kiev");
 dayjs.extend(customParseFormat);
 
-const DEFAULT_MACMINI_HEALTH_URL = "https://mm4.frontend.im/health";
-
-/**
- * Secondary source-of-truth: Mac mini on same power + WiFi as the smart plug.
- * @param {object} env
- * @returns {Promise<boolean>} true only when health responds with status "ok"
- */
-async function checkMacminiHealth(env) {
-  const logger = createLogger(env);
-  const url = env.MACMINI_HEALTH_URL || DEFAULT_MACMINI_HEALTH_URL;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      logger.info(
-        `Mac mini health check failed: HTTP ${response.status} from ${url}`,
-      );
-      return false;
-    }
-
-    const data = await response.json();
-    const ok = data?.status === "ok";
-    if (!ok) {
-      logger.info(`Mac mini health not ok: ${JSON.stringify(data)}`);
-    }
-    return ok;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === "AbortError") {
-      logger.info(`Mac mini health check timed out: ${url}`);
-    } else {
-      logger.info(`Mac mini health check error: ${error.message}`);
-    }
-    return false;
-  }
-}
-
 /**
  * Parse HTML text to extract schedule groups data
  * @param {string} rawHtml - HTML text with schedule information
  * @returns {Object} - Parsed groups data in format { groups: [...], date: "..." }
  */
-function parseScheduleHtml(rawHtml) {
+export function parseScheduleHtml(rawHtml) {
   if (!rawHtml) {
     return { groups: [], date: null };
   }
@@ -87,15 +42,23 @@ function parseScheduleHtml(rawHtml) {
 
   const groups = [];
 
-  // Extract group information from paragraphs
-  // Pattern: "Група X.X. Електроенергії немає з HH:MM до HH:MM, з HH:MM до HH:MM."
+  // Every group sentence is either "Група X.X. Електроенергія є." (power,
+  // no outage) or "Група X.X. Електроенергії немає з HH:MM до HH:MM(, з HH:MM
+  // до HH:MM)*." Both branches must be captured — a group with power all day
+  // otherwise silently disappears from `groups` and reads downstream as
+  // "group not found in schedule".
   const groupPattern =
-    /Група\s+(\d+\.\d+)\.\s+Електроенергії\s+немає\s+(.+?)\./g;
+    /Група\s+(\d+\.\d+)\.\s+(?:Електроенергія\s+є|Електроенергії\s+немає\s+(.+?))\./g;
   let match;
 
   while ((match = groupPattern.exec(decodedHtml)) !== null) {
     const groupId = match[1];
     const scheduleText = match[2];
+
+    if (!scheduleText) {
+      groups.push({ id: groupId, date, status: "power", schedule: "" });
+      continue;
+    }
 
     // Parse time ranges (e.g., "з 00:00 до 06:00, з 11:00 до 15:00")
     const timeRanges = [];
@@ -110,8 +73,8 @@ function parseScheduleHtml(rawHtml) {
 
     groups.push({
       id: groupId,
-      date: date,
-      status: "Електроенергії немає",
+      date,
+      status: "outage",
       schedule: timeRanges.join(", "),
     });
   }
@@ -761,17 +724,7 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
 
   try {
     const deviceInfo = await getDeviceInfo(deviceId, env);
-    let deviceStatus = deviceInfo.result.online;
-
-    // Secondary source-of-truth: Tuya can report offline on its own WiFi/network
-    // hiccup. The Mac mini shares the same power + WiFi, so if it is healthy,
-    // electricity is on. Only stay offline if BOTH are down.
-    if (!deviceStatus) {
-      const macminiOk = await checkMacminiHealth(env);
-      if (macminiOk) {
-        deviceStatus = true;
-      }
-    }
+    const deviceStatus = deviceInfo.result.online;
 
     const deviceStatusStr = deviceStatus ? "online" : "offline";
     const dt = dayjs();

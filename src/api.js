@@ -5,6 +5,8 @@ import { getScheduleFormattedDate } from "./smart-plug.js";
 import { createLogger } from "./utils/logger.js";
 import { fetchScheduleMenu, parseScheduleHtml } from "./smart-plug.js";
 import { generateIcs } from "./utils/ics.js";
+import { getToken, getDeviceInfo } from "./utils/tuya-api.js";
+import { getLatestStatus } from "./utils/db.js";
 import dayjs from "dayjs";
 
 const app = new Hono();
@@ -81,6 +83,76 @@ app.get("/test-image-result", async (c) => {
 });
 
 app.get("/ping", (c) => c.text("ok"));
+
+// Dependency health checks. Each returns a small detail object or throws.
+const HEALTH_CHECKS = {
+  tuya: async (env) => {
+    await getToken(env);
+    const { result } = await getDeviceInfo(env.TUYA_DEVICE_ID, env);
+    return { deviceOnline: result.online };
+  },
+  firebase: async (env) => {
+    const latest = await getLatestStatus(env);
+    return {
+      latestStatus: latest?.status ?? null,
+      since: latest ? new Date(latest.datetime.seconds * 1000).toISOString() : null,
+    };
+  },
+  schedule: async (env) => {
+    const menu = await fetchScheduleMenu(env);
+    return { menuItems: menu?.length ?? 0 };
+  },
+  telegram: async (env) => {
+    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(`Telegram getMe failed: ${data.description}`);
+    return { bot: data.result.username };
+  },
+};
+
+async function runHealthCheck(name, env) {
+  const started = Date.now();
+  let timer;
+  try {
+    const detail = await Promise.race([
+      HEALTH_CHECKS[name](env),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timed out after 15s")), 15000);
+      }),
+    ]);
+    return { ok: true, ms: Date.now() - started, ...detail };
+  } catch (err) {
+    return { ok: false, ms: Date.now() - started, error: err.message };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * GET /health/all  — run every check in parallel
+ * GET /health/:name — run one check (tuya | firebase | schedule | telegram)
+ * 200 when all ok, 503 otherwise.
+ */
+app.get("/health/:name", async (c) => {
+  const name = c.req.param("name");
+  const names = name === "all" ? Object.keys(HEALTH_CHECKS) : [name];
+  if (!names.every((n) => Object.hasOwn(HEALTH_CHECKS, n))) {
+    return c.json({ error: `Unknown check. Use: all, ${Object.keys(HEALTH_CHECKS).join(", ")}` }, 404);
+  }
+
+  const results = Object.fromEntries(
+    await Promise.all(names.map(async (n) => [n, await runHealthCheck(n, c.env)])),
+  );
+  const ok = Object.values(results).every((r) => r.ok);
+
+  if (!ok) {
+    createLogger(c.env).error("Health check failed:", results);
+  }
+
+  return c.json({ ok, checks: results, timestamp: new Date().toISOString() }, ok ? 200 : 503);
+});
 
 app.get("/no-render", async (c) => {
   try {

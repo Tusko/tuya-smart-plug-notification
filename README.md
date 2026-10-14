@@ -330,6 +330,35 @@ Returns health status in JSON format.
 curl https://your-worker.workers.dev/health
 ```
 
+### `GET /health/:check`
+
+Checks external dependencies. `:check` is `all`, `tuya`, `firebase`, `schedule`, or `telegram`. `all` runs every check in parallel. Each check times out after 15s. Returns `200` if every check passes, `503` otherwise (failures are also logged).
+
+| Check | What it does |
+|-------|--------------|
+| `tuya` | Gets a token and reads the device (`deviceOnline`) |
+| `firebase` | Reads the latest stored status (`latestStatus`, `since`) |
+| `schedule` | Fetches the schedule menu (`menuItems`) |
+| `telegram` | Calls `getMe` with the bot token (`bot`) |
+
+**Example:**
+```bash
+curl https://your-worker.workers.dev/health/all
+```
+
+```json
+{
+  "ok": true,
+  "checks": {
+    "tuya": { "ok": true, "ms": 412, "deviceOnline": true },
+    "firebase": { "ok": true, "ms": 230, "latestStatus": "online", "since": "2026-09-22T21:35:54.000Z" },
+    "schedule": { "ok": true, "ms": 520, "menuItems": 3 },
+    "telegram": { "ok": true, "ms": 180, "bot": "your_bot" }
+  },
+  "timestamp": "2026-10-14T13:00:00.000Z"
+}
+```
+
 ### `POST /broadcast`
 
 Sends a message to every chat in `TELEGRAM_BOT_CHAT_ID`. Requires `Authorization: Bearer <BROADCAST_KEY>`; returns `401` otherwise (including when `BROADCAST_KEY` is not set).

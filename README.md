@@ -114,6 +114,7 @@ SCHEDULE_API_URL=https://api.loe.lviv.ua
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 TELEGRAM_BOT_CHAT_ID=123456789
 TELEGRAM_CHANNEL_LINK=your_telegram_channel_link
+BROADCAST_KEY=your_long_random_secret
 
 # Google Gemini API (optional - for advanced image analysis)
 GEMINI_API_KEY=your_gemini_api_key
@@ -144,6 +145,7 @@ wrangler secret put SCHEDULE_API_URL
 wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put TELEGRAM_BOT_CHAT_ID
 wrangler secret put TELEGRAM_CHANNEL_LINK
+wrangler secret put BROADCAST_KEY
 wrangler secret put GEMINI_API_KEY  # Optional - for Gemini image analysis
 wrangler secret put NODE_ENV
 ```
@@ -174,6 +176,7 @@ wrangler secret put TUYA_ACCESS_KEY -e production
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token from @BotFather | ✅ | - |
 | `TELEGRAM_BOT_CHAT_ID` | Telegram chat ID for notifications | ✅ | - |
 | `TELEGRAM_CHANNEL_LINK` | Telegram bot/channel invite link | ❌ | - |
+| `BROADCAST_KEY` | Bearer token for `POST /broadcast`. Unset = endpoint always returns 401 | ❌ | - |
 | `GEMINI_API_KEY` | Google Gemini API key for advanced image analysis | ❌ | - |
 | `NODE_ENV` | Environment mode (`development` or `production`) | ❌ | `development` |
 
@@ -327,13 +330,31 @@ Returns health status in JSON format.
 curl https://your-worker.workers.dev/health
 ```
 
-### `GET /test-bot`
+### `POST /broadcast`
 
-Tests Telegram bot functionality by sending a test message.
+Sends a message to every chat in `TELEGRAM_BOT_CHAT_ID`. Requires `Authorization: Bearer <BROADCAST_KEY>`; returns `401` otherwise (including when `BROADCAST_KEY` is not set).
 
-**Response:**
+`message` can be sent as JSON, form data, or `?message=` query param. `\n` is converted to a newline. Without a message, sends "test bot" plus the channel link.
+
+**Example:**
+```bash
+curl -X POST https://your-worker.workers.dev/broadcast \
+  -H "Authorization: Bearer $BROADCAST_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hello from the bot"}'
 ```
-ok
+
+**Response:** `ok` (200), `Unauthorized` (401), or `error` (500 if any chat fails).
+
+`POST /test-bot` is an alias with the same auth.
+
+### `GET /calendar/:groupId.ics`
+
+Subscribable ICS feed with today's and tomorrow's outages for one group (e.g. `/calendar/1.1.ics`). Returns `404` for malformed group ids and `502` if the schedule API is unavailable.
+
+**Example:**
+```bash
+curl https://your-worker.workers.dev/calendar/1.1.ics
 ```
 
 ### `POST /analyze-image`
@@ -600,10 +621,10 @@ yarn dev
 ### Test Telegram Bot
 
 ```bash
-curl https://your-worker.workers.dev/test-bot
+curl -X POST https://your-worker.workers.dev/test-bot -H "Authorization: Bearer $BROADCAST_KEY"
 ```
 
-Check your Telegram chat for a "test bot" message.
+Check your Telegram chats for a "test bot" message.
 
 ### Test AI Image Analysis
 

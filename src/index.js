@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { bearerAuth } from "hono/bearer-auth";
+import { timingSafeEqual } from "hono/utils/buffer";
 import apiApp from "./api.js";
 import smartPlug from "./smart-plug.js";
 import { sendTelegramMessage } from "./utils/telegram.js";
@@ -11,7 +13,10 @@ app
   .use("/*", cors())
   .route("/", apiApp)
   .notFound((c) => c.text('🙈 Route not found', 404))
-  .post("/test-bot", async (c) => {
+  // Fails closed: no BROADCAST_KEY configured → every request is rejected.
+  .on("POST", ["/broadcast", "/test-bot"], bearerAuth({
+    verifyToken: (token, c) => Boolean(c.env.BROADCAST_KEY) && timingSafeEqual(token, c.env.BROADCAST_KEY),
+  }), async (c) => {
     const logger = createLogger(c.env);
     logger.info('Test bot request received');
     let message;

@@ -27,6 +27,8 @@ SCHEDULE_API_URL=https://api.loe.lviv.ua
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 TELEGRAM_BOT_CHAT_ID=your-telegram-chat-id
 TELEGRAM_CHANNEL_LINK=your-telegram-channel-link
+# Bearer token for POST /broadcast (send message to all TELEGRAM_BOT_CHAT_ID chats)
+BROADCAST_KEY=your-long-random-secret
 
 # Google Gemini API (optional - for advanced image analysis)
 GEMINI_API_KEY=your-gemini-api-key

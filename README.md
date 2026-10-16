@@ -153,7 +153,7 @@ wrangler secret put NODE_ENV
 Or use the `-e` flag to set secrets for a specific environment:
 
 ```bash
-wrangler secret put TUYA_ACCESS_KEY -e production
+wrangler secret put TUYA_ACCESS_KEY
 ```
 
 ### Environment Variable Reference
@@ -222,7 +222,7 @@ This deploys to your Cloudflare Workers production environment configured in `wr
 
 ```bash
 wrangler deploy -e dev
-wrangler deploy -e production
+wrangler deploy
 ```
 
 ## 📁 Project Structure

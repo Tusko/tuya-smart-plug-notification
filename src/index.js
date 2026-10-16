@@ -20,18 +20,25 @@ app
     const logger = createLogger(c.env);
     logger.info('Test bot request received');
     let message;
+    let parseMode;
     try {
       const body = await c.req.json();
       message = body.message;
+      parseMode = body.parse_mode;
     } catch (e) {
       // If JSON parsing fails, try form data
       try {
         const formData = await c.req.parseBody();
         message = formData.message;
+        parseMode = formData.parse_mode;
       } catch (e2) {
         // If both fail, try query parameter
         message = c.req.query('message');
+        parseMode = c.req.query('parse_mode');
       }
+    }
+    if (parseMode && !['MarkdownV2', 'HTML', 'Markdown'].includes(parseMode)) {
+      return c.text('invalid parse_mode, use MarkdownV2 | HTML | Markdown', 400);
     }
     // Decode URL-encoded message and convert \\n to actual newlines
     if (message) {
@@ -60,7 +67,7 @@ app
       const results = await Promise.all(chatIDs.map(async (chatID) => {
         logger.info(`Sending message to chatID: ${chatID}`);
         try {
-          const response = await sendTelegramMessage(botToken, chatID, msgTxt);
+          const response = await sendTelegramMessage(botToken, chatID, msgTxt, parseMode);
           const responseData = await response.json();
           logger.info(`Response for chatID ${chatID}:`, responseData);
           if (!response.ok) {

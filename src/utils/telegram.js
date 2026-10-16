@@ -15,9 +15,11 @@ function escapeMarkdownV2(text) {
  * @param {string} botToken - Telegram bot token
  * @param {string} chatId - Chat ID to send message to
  * @param {string} text - Message text to send
+ * @param {string} [parseMode] - 'MarkdownV2' | 'HTML' | 'Markdown'. When set, text is sent as-is (caller escapes).
+ *   When omitted, text is auto-escaped and sent as MarkdownV2.
  * @returns {Promise<Response>} - Fetch response
  */
-export async function sendTelegramMessage(botToken, chatId, text) {
+export async function sendTelegramMessage(botToken, chatId, text, parseMode) {
   if (!botToken) {
     console.error('sendTelegramMessage: botToken is missing');
     throw new Error('Bot token is required');
@@ -31,14 +33,11 @@ export async function sendTelegramMessage(botToken, chatId, text) {
     throw new Error('Message text is required');
   }
 
-  // Escape text for MarkdownV2
-  const escapedText = escapeMarkdownV2(text);
-
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   const payload = {
-    text: escapedText,
+    text: parseMode ? text : escapeMarkdownV2(text),
     chat_id: chatId,
-    parse_mode: 'MarkdownV2',
+    parse_mode: parseMode || 'MarkdownV2',
   };
 
   console.log('sendTelegramMessage: Sending to', url);

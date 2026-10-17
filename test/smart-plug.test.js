@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fetchScheduleMenu, parseScheduleHtml, buildMyGroupMessage } from "../src/smart-plug.js";
+import { fetchScheduleMenu, parseScheduleHtml, buildMyGroupMessage, isSilentUpdate } from "../src/smart-plug.js";
 import app from "../src/api.js";
 import dayjs from "dayjs";
 
@@ -196,4 +196,11 @@ test("GET /calendar/:groupId.ics returns 502 when the schedule API fails", async
   const res = await app.request("/calendar/1.1.ics", {}, { SCHEDULE_API_URL: "https://api.loe.lviv.ua" });
 
   assert.equal(res.status, 502);
+});
+
+test("isSilentUpdate: silent only when previous state exists and my group unchanged", () => {
+  const others = [{ id: "4.2" }, { id: "5.1" }];
+  assert.equal(isSilentUpdate([{}], others, "1.1"), true);
+  assert.equal(isSilentUpdate([{}], [...others, { id: "1.1" }], "1.1"), false);
+  assert.equal(isSilentUpdate(null, others, "1.1"), false);
 });

@@ -15,11 +15,13 @@ function escapeMarkdownV2(text) {
  * @param {string} botToken - Telegram bot token
  * @param {string} chatId - Chat ID to send message to
  * @param {string} text - Message text to send
- * @param {string} [parseMode] - 'MarkdownV2' | 'HTML' | 'Markdown'. When set, text is sent as-is (caller escapes).
+ * @param {object} [options]
+ * @param {string} [options.parseMode] - 'MarkdownV2' | 'HTML' | 'Markdown'. When set, text is sent as-is (caller escapes).
  *   When omitted, text is auto-escaped and sent as MarkdownV2.
+ * @param {boolean} [options.silent] - Deliver without notification sound
  * @returns {Promise<Response>} - Fetch response
  */
-export async function sendTelegramMessage(botToken, chatId, text, parseMode) {
+export async function sendTelegramMessage(botToken, chatId, text, { parseMode, silent = false } = {}) {
   if (!botToken) {
     console.error('sendTelegramMessage: botToken is missing');
     throw new Error('Bot token is required');
@@ -38,6 +40,7 @@ export async function sendTelegramMessage(botToken, chatId, text, parseMode) {
     text: parseMode ? text : escapeMarkdownV2(text),
     chat_id: chatId,
     parse_mode: parseMode || 'MarkdownV2',
+    disable_notification: silent,
   };
 
   console.log('sendTelegramMessage: Sending to', url);
@@ -84,9 +87,11 @@ export async function sendTelegramMessage(botToken, chatId, text, parseMode) {
  * @param {string} chatId - Chat ID to send photo to
  * @param {string} photoUrl - URL of the photo to send
  * @param {string} caption - Caption text (optional)
+ * @param {object} [options]
+ * @param {boolean} [options.silent] - Deliver without notification sound
  * @returns {Promise<Response>} - Fetch response
  */
-export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption = '') {
+export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption = '', { silent = false } = {}) {
   // Add timeout to prevent hanging requests
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for photo uploads
@@ -101,6 +106,7 @@ export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption = ''
         photo: photoUrl,
         caption,
         chat_id: chatId,
+        disable_notification: silent,
       }),
       signal: controller.signal,
     });

@@ -67,7 +67,7 @@ app
       const results = await Promise.all(chatIDs.map(async (chatID) => {
         logger.info(`Sending message to chatID: ${chatID}`);
         try {
-          const response = await sendTelegramMessage(botToken, chatID, msgTxt, parseMode);
+          const response = await sendTelegramMessage(botToken, chatID, msgTxt, { parseMode });
           const responseData = await response.json();
           logger.info(`Response for chatID ${chatID}:`, responseData);
           if (!response.ok) {

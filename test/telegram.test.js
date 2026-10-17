@@ -17,7 +17,12 @@ test("no parseMode: escapes text, uses MarkdownV2", async () => {
 });
 
 test("parseMode given: sends text raw with that mode", async () => {
-  const p = await capturePayload("<b>a.b</b>", "HTML");
+  const p = await capturePayload("<b>a.b</b>", { parseMode: "HTML" });
   assert.equal(p.text, "<b>a.b</b>");
   assert.equal(p.parse_mode, "HTML");
+});
+
+test("silent option sets disable_notification", async () => {
+  assert.equal((await capturePayload("x")).disable_notification, false);
+  assert.equal((await capturePayload("x", { silent: true })).disable_notification, true);
 });

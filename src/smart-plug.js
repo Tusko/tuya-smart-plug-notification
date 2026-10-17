@@ -382,6 +382,14 @@ export async function fetchScheduleMenu(env) {
   return menu.menuItems;
 }
 
+/**
+ * Schedule update is silent when a previous state exists and my group did not change
+ * (other groups changing alone should not ring the phone).
+ */
+export function isSilentUpdate(previousGroupsState, groupChanges, scheduleId) {
+  return !!previousGroupsState && !groupChanges.some((c) => c.id === scheduleId);
+}
+
 export function buildMyGroupMessage({ myGroup, formattedDate, durationText, scheduleId }) {
   if (myGroup.status === "power") {
     return `Група ${scheduleId}: відключень немає`;
@@ -587,6 +595,13 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         }
       }
 
+      const silent = isSilentUpdate(
+        previousGroupsState,
+        groupChanges,
+        env.SCHEDULE_ID,
+      );
+      logger.info(`Schedule update silent: ${silent}`);
+
       const caption =
         messageParts.length > 0
           ? messageParts.join("\n")
@@ -600,7 +615,9 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
 
         await Promise.all(
           chatIds.map((chatId) =>
-            sendTelegramPhoto(telegramBotToken, chatId, lastImage, caption),
+            sendTelegramPhoto(telegramBotToken, chatId, lastImage, caption, {
+              silent,
+            }),
           ),
         );
 
@@ -612,14 +629,14 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
 
         await Promise.all(
           chatIds.map((chatId) =>
-            sendTelegramMessage(telegramBotToken, chatId, caption),
+            sendTelegramMessage(telegramBotToken, chatId, caption, { silent }),
           ),
         );
       } else if (!isExistsImage && messageParts.length > 0) {
         // Send text message if we have message but no image URL
         await Promise.all(
           chatIds.map((chatId) =>
-            sendTelegramMessage(telegramBotToken, chatId, caption),
+            sendTelegramMessage(telegramBotToken, chatId, caption, { silent }),
           ),
         );
       }

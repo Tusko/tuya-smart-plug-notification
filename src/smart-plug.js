@@ -828,6 +828,7 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
         notify =
           "💡 Світло є\r\n\r\nЕлектроенергія була відсутня: " + getTimeDiff;
         await insertStatus(deviceStatusStr, env);
+        latestStatus = { status: deviceStatusStr, datetime: { seconds: now.unix() } };
       }
     } else {
       if (latestStatus.status === "online") {
@@ -835,6 +836,7 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
           "🔴 Світла немає\r\n\r\nЕлектроенергію було увімкнено: " +
           getTimeDiff;
         await insertStatus(deviceStatusStr, env);
+        latestStatus = { status: deviceStatusStr, datetime: { seconds: now.unix() } };
       }
     }
   } catch (e) {

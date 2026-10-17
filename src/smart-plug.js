@@ -7,7 +7,7 @@ import timezone from "dayjs/plugin/timezone.js";
 import humanizeDuration from "humanize-duration";
 import "dayjs/locale/uk.js";
 import { getToken, getDeviceInfo } from "./utils/tuya-api.js";
-import { sendTelegramMessage, sendTelegramPhoto } from "./utils/telegram.js";
+import { sendTelegramMessage, sendTelegramPhoto, sendToChats } from "./utils/telegram.js";
 import { createLogger } from "./utils/logger.js";
 
 dayjs.extend(relativeTime);
@@ -505,15 +505,16 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
         logger.info(
           `Sending Tomorrow notification (no image in DB): ${tomorrowImageUrl}`,
         );
-        await Promise.all(
-          chatIds.map((chatId) =>
+        await sendToChats(
+          chatIds,
+          (chatId) =>
             sendTelegramPhoto(
               telegramBotToken,
               chatId,
               tomorrowImageUrl,
               tomorrowCaption,
             ),
-          ),
+          logger,
         );
         await insertImage(tomorrowItem.imageUrl, env);
       }
@@ -613,12 +614,13 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
 
         logger.info("Last image:", lastImage);
 
-        await Promise.all(
-          chatIds.map((chatId) =>
+        await sendToChats(
+          chatIds,
+          (chatId) =>
             sendTelegramPhoto(telegramBotToken, chatId, lastImage, caption, {
               silent,
             }),
-          ),
+          logger,
         );
 
         await insertImage(imageUrl, env);
@@ -627,17 +629,19 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
 
         logger.info("Sending text message:", caption);
 
-        await Promise.all(
-          chatIds.map((chatId) =>
+        await sendToChats(
+          chatIds,
+          (chatId) =>
             sendTelegramMessage(telegramBotToken, chatId, caption, { silent }),
-          ),
+          logger,
         );
       } else if (!isExistsImage && messageParts.length > 0) {
         // Send text message if we have message but no image URL
-        await Promise.all(
-          chatIds.map((chatId) =>
+        await sendToChats(
+          chatIds,
+          (chatId) =>
             sendTelegramMessage(telegramBotToken, chatId, caption, { silent }),
-          ),
+          logger,
         );
       }
 
@@ -726,10 +730,11 @@ async function scrapeAndSendImage(telegramBotToken, chatIds, env) {
               message += `Дата/час: ${notificationDate.format("DD.MM.YYYY HH:mm")} (Europe/Kyiv)\n`;
               const botLink = `\n[СвітлоЄ Бот](${env.TELEGRAM_CHANNEL_LINK || 'https://t.me/+hcOVky6W75cwOTNi'})`;
               message += "\n" + botLink;
-              await Promise.all(
-                chatIds.map((chatId) =>
+              await sendToChats(
+                chatIds,
+                (chatId) =>
                   sendTelegramMessage(telegramBotToken, chatId, message),
-                ),
+                logger,
               );
             }
           }
@@ -842,8 +847,10 @@ export default async function smartPlug(tgMsg = true, env = process.env) {
   } finally {
     if (notify) {
       if (tgMsg) {
-        await Promise.all(
-          chatIDs.map((chatID) => sendTelegramMessage(botID, chatID, notify)),
+        await sendToChats(
+          chatIDs,
+          (chatID) => sendTelegramMessage(botID, chatID, notify),
+          createLogger(env),
         );
       }
     } else {

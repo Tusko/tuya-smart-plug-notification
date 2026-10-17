@@ -127,3 +127,23 @@ export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption = ''
   }
 }
 
+
+/**
+ * Send to every chat; one broken chat (e.g. "chat not found") must not block the rest
+ * or the state saves that follow. Throws only if every chat failed.
+ * @param {Array<string>} chatIds
+ * @param {(chatId: string) => Promise<Response>} send
+ * @param {{ error: Function }} [logger]
+ */
+export async function sendToChats(chatIds, send, logger = console) {
+  const results = await Promise.allSettled(chatIds.map(send));
+  const failed = results.filter((r, i) => {
+    if (r.status !== 'rejected') return false;
+    logger.error(`Telegram send to chat ${chatIds[i]} failed:`, r.reason?.message || r.reason);
+    return true;
+  });
+  if (failed.length === results.length && failed.length > 0) {
+    throw failed[0].reason;
+  }
+  return results;
+}

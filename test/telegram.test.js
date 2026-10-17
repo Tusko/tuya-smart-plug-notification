@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sendTelegramMessage } from "../src/utils/telegram.js";
+import { sendTelegramMessage, sendToChats } from "../src/utils/telegram.js";
 
 async function capturePayload(...args) {
   const orig = globalThis.fetch;
@@ -25,4 +25,13 @@ test("parseMode given: sends text raw with that mode", async () => {
 test("silent option sets disable_notification", async () => {
   assert.equal((await capturePayload("x")).disable_notification, false);
   assert.equal((await capturePayload("x", { silent: true })).disable_notification, true);
+});
+
+test("sendToChats: one broken chat does not fail the batch; all broken throws", async () => {
+  const quiet = { error() {} };
+  const sent = [];
+  const send = async (id) => { if (id === "bad") throw new Error("chat not found"); sent.push(id); };
+  await sendToChats(["a", "bad", "b"], send, quiet);
+  assert.deepEqual(sent, ["a", "b"]);
+  await assert.rejects(sendToChats(["bad"], send, quiet), /chat not found/);
 });

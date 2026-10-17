@@ -25,3 +25,8 @@ test("escapes untrusted strings", () => {
   const html = renderStatusPage({ error: "<script>x</script>", lastGraphics: '"><img onerror=1>' });
   assert.doesNotMatch(html, /<script>x|"><img onerror/);
 });
+
+test("tilt script ships only with the hanging bulb", () => {
+  assert.match(renderStatusPage({ latestStatus: status("online", 1), now: NOW }), /deviceorientation/);
+  assert.doesNotMatch(renderStatusPage({ latestStatus: status("offline", 1), now: NOW }), /<script>/);
+});

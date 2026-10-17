@@ -11,8 +11,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (ch) => `&#${ch.charCodeA
 
 const STATES = {
   online: { title: "Світло є", verb: "увімкнули", icon: "💡", bg: ["#FFD93B", "#17140A"] },
-  offline: { title: "Світла немає", verb: "вимкнули", icon: "🌑", bg: ["#E4E8F7", "#1E2447"] },
-  unknown: { title: "Невідомо", verb: "", icon: "❔", bg: ["#D9DCE3", "#1C1E24"] },
+  offline: { title: "Світла немає", verb: "вимкнули", icon: "🕯️", bg: ["#E4E8F7", "#1E2447"] },
+  unknown: { title: "Невідомо", verb: "", icon: "🔌", bg: ["#D9DCE3", "#1C1E24"] },
 };
 
 const CSS = `
@@ -23,6 +23,7 @@ const CSS = `
 :root{--bg:#1C1E24;--ink:#D9DCE3;--muted:#9095A3;--line:rgba(217,220,227,.2)}
 [data-state=online]{--bg:#17140A;--ink:#FFD93B;--muted:#B8A65A}
 [data-state=online] h1{text-shadow:0 0 .35em rgba(255,217,59,.35)}
+[data-state=online] .mark span{filter:drop-shadow(0 0 .35em rgba(255,217,59,.8))}
 [data-state=offline]{--bg:#1E2447;--ink:#E4E8F7;--muted:#9AA3C7}
 }
 :root{color-scheme:light dark}
@@ -33,11 +34,19 @@ a{color:inherit;text-underline-offset:.2em}
 a:focus-visible,summary:focus-visible{outline:3px solid currentColor;outline-offset:3px;border-radius:2px}
 header{display:flex;justify-content:space-between;gap:1rem;color:var(--muted);font-size:.9375rem}
 header b{color:var(--ink)}
-.hero{padding:18vh 0 3rem}
+.hero{padding-bottom:3rem}
+.mark{position:relative;width:max-content;padding-top:12vh;margin:0 auto 1.25rem;font-size:clamp(3.5rem,14vw,5rem);line-height:1;transform-origin:50% 0}
+.mark span{display:block}
+[data-state=online] .mark::before{content:"";position:absolute;top:-3rem;left:50%;width:2px;height:calc(12vh + 3rem + .12em);margin-left:-1px;background:var(--ink);opacity:.45}
+[data-state=online] .mark{animation:swing 2.6s cubic-bezier(.3,.7,.4,1) both}
+[data-state=online] .mark span{transform:rotate(180deg);filter:drop-shadow(0 0 .25em rgba(255,255,255,.7))}
+@keyframes swing{0%{transform:rotate(14deg)}25%{transform:rotate(-9deg)}50%{transform:rotate(5deg)}75%{transform:rotate(-2deg)}100%{transform:rotate(0)}}
+[data-state=offline] .mark span{transform-origin:50% 100%;animation:flame 3.2s ease-in-out infinite}
+@keyframes flame{0%,100%{transform:scale(1) skewX(0);filter:drop-shadow(0 -.1em .3em rgba(255,170,60,.45))}30%{transform:scale(1.02,1.04) skewX(-1.5deg);filter:drop-shadow(0 -.1em .45em rgba(255,170,60,.6))}60%{transform:scale(.99,1.01) skewX(1deg);filter:drop-shadow(0 -.1em .25em rgba(255,170,60,.35))}}
 h1{font-size:clamp(3.75rem,17vw,7.5rem);font-weight:800;line-height:.88;letter-spacing:-.045em;text-wrap:balance}
 [data-state=online] h1{animation:flicker .7s steps(1) both}
 @keyframes flicker{0%{opacity:.15}20%{opacity:1}30%{opacity:.3}45%{opacity:1}55%{opacity:.6}70%{opacity:1}}
-@media (prefers-reduced-motion:reduce){h1{animation:none!important}}
+@media (prefers-reduced-motion:reduce){h1,.mark,.mark span{animation:none!important}}
 .since{margin-top:1.25rem;font-size:clamp(1.25rem,4.5vw,1.75rem);font-weight:600;letter-spacing:-.01em}
 .when{margin-top:.25rem;color:var(--muted)}
 section{border-top:1px solid var(--line);padding-top:1.25rem;margin-top:2rem}
@@ -88,6 +97,7 @@ export function renderStatusPage({ latestStatus, notify, lastGraphics, allStatus
 <header><b>СвітлоЄ</b>${group ? `<span>група ${esc(group)}</span>` : ""}</header>
 <main>
 <div class="hero">
+<div class="mark" aria-hidden="true"><span>${st.icon}</span></div>
 <h1>${st.title}</h1>
 ${sinceLine ? `<p class="since">${sinceLine}</p>` : ""}
 ${whenLine ? `<p class="when">${whenLine}</p>` : ""}
@@ -95,7 +105,7 @@ ${whenLine ? `<p class="when">${whenLine}</p>` : ""}
 ${lastGraphics || group ? `<section>
 <h2>Графік відключень</h2>
 ${lastGraphics ? `<img src="${esc(lastGraphics)}" alt="Графік погодинних відключень ЛОЕ">` : ""}
-${group ? `<a class="cal" href="/calendar/${esc(group)}.ics">Додати графік групи ${esc(group)} у календар</a>` : ""}
+${group ? `<a class="cal" href="/calendar/${esc(group)}.ics">📅 Додати графік групи ${esc(group)} у календар</a>` : ""}
 </section>` : ""}
 ${tech ? `<section><details><summary>Технічні дані</summary><pre>${tech}</pre></details></section>` : ""}
 </main>
